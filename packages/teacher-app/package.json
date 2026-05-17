@@ -1,0 +1,40 @@
+{
+  "name": "edulens-teacher",
+  "version": "1.0.0",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "build:win": "npm run build && electron-builder --win",
+    "build:mac": "npm run build && electron-builder --mac"
+  },
+  "dependencies": {
+    "edulens-backend": "*",
+    "axios": "^1.6.7",
+    "qrcode.react": "^3.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.22.3",
+    "recharts": "^2.12.2",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.28",
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "@vitejs/plugin-react": "^4.2.1",
+    "electron": "^29.1.4",
+    "electron-builder": "^24.13.3",
+    "electron-vite": "^2.0.0",
+    "typescript": "^5.4.2",
+    "vite": "^5.1.6"
+  },
+  "build": {
+    "appId": "com.edulens.teacher",
+    "productName": "EduLens Teacher",
+    "files": ["out/**/*"],
+    "win": { "target": "nsis" },
+    "mac": { "target": "dmg" }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "edulens",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/backend",
+    "packages/teacher-app",
+    "packages/student-app"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=packages/backend",
+    "dev:teacher": "npm run dev --workspace=packages/teacher-app",
+    "install:all": "npm install"
+  },
+  "devDependencies": {
+    "electron": "^29.1.4"
+  }
+}
