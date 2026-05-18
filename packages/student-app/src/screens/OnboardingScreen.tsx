@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react'
-import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions, Animated } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions, Animated, Image, ImageSourcePropType } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootStackParamList } from '../navigation/AppNavigator'
@@ -10,23 +10,31 @@ type Nav = NativeStackNavigationProp<RootStackParamList, 'Onboarding'>
 
 const { width } = Dimensions.get('window')
 
-const SLIDES = [
+type Slide = {
+  image: ImageSourcePropType
+  kicker: string
+  headline: string
+  body: string
+  bg: string
+}
+
+const SLIDES: Slide[] = [
   {
-    emoji: '📖',
+    image: require('../../assets/illustrations/onboard_1.png'),
     kicker: 'LEARN ANYWHERE',
     headline: 'Turn any lesson into\na live experience',
     body: 'Join your teacher\'s live class by scanning a QR code. Ask questions, take quizzes, and get instant AI help.',
     bg: '#FFF8F0',
   },
   {
-    emoji: '🤖',
+    image: require('../../assets/illustrations/onboard_2.png'),
     kicker: 'AI TUTOR',
     headline: 'Your personal AI\ntutor, always ready',
     body: 'Type /explain, /hint, /define, or just ask a question. Get clear answers tailored for NCERT Class 6–10.',
     bg: '#F0F8FF',
   },
   {
-    emoji: '📊',
+    image: require('../../assets/illustrations/onboard_3.png'),
     kicker: 'TRACK YOUR GROWTH',
     headline: 'See exactly where\nyou need help',
     body: 'After every quiz, get personalized homework and a report card. Your teacher sees how to help you better.',
@@ -74,8 +82,8 @@ export default function OnboardingScreen() {
       >
         {SLIDES.map((slide, i) => (
           <View key={i} style={[styles.slide, { width }]}>
-            <View style={styles.emojiWrap}>
-              <Text style={styles.emoji}>{slide.emoji}</Text>
+            <View style={styles.imageFrame}>
+              <Image source={slide.image} style={styles.image} resizeMode="cover" />
             </View>
             <Text style={styles.kicker}>{slide.kicker}</Text>
             <Text style={styles.headline}>{slide.headline}</Text>
@@ -120,13 +128,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingTop: 60,
   },
-  emojiWrap: {
-    width: 120, height: 120, borderRadius: 60,
+  imageFrame: {
+    width: width * 0.86,
+    height: width * 0.86 * 0.62,
+    borderRadius: 24,
+    overflow: 'hidden',
     backgroundColor: 'rgba(255,255,255,0.7)',
-    alignItems: 'center', justifyContent: 'center',
     marginBottom: spacing.lg,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 14,
+    elevation: 4,
   },
-  emoji: { fontSize: 56 },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
   kicker: {
     fontSize: 11, fontWeight: '700', letterSpacing: 2,
     color: colors.coralDeep, marginBottom: 12,
