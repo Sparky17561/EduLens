@@ -1,119 +1,288 @@
 import React from 'react'
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native'
+import Svg, { Path, Circle } from 'react-native-svg'
 import { useNavigation } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootStackParamList } from '../navigation/AppNavigator'
 import { useSessionStore } from '../store/sessionStore'
-import { theme } from '../theme'
+import { ScreenScaffold, PrimaryButton, OfflineBadge, Badge } from '../components/ui'
+import { ScreenHeader } from '../components/widgets'
+import Illustration from '../components/Illustration'
+import { colors, type, spacing, radius, shadow } from '../theme/tokens'
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Results'>
 
 export default function ResultsScreen() {
   const nav = useNavigation<Nav>()
-  const { quizResult, student } = useSessionStore()
+  const { quizResult } = useSessionStore()
 
   if (!quizResult) {
     return (
-      <SafeAreaView style={s.container}>
-        <View style={s.center}><Text>No results yet</Text></View>
-      </SafeAreaView>
+      <ScreenScaffold tint="meadow">
+        <ScreenHeader title="Report Card" kicker="NO TEST COMPLETED" onBack={() => nav.goBack()} />
+        <View style={styles.center}>
+          <Text style={{ fontSize: 48, marginBottom: 16 }}>📝</Text>
+          <Text style={styles.waitTitle}>No Results Found</Text>
+          <Text style={styles.waitDesc}>
+            Take the live classroom trivia quiz to generate your personal score and NCERT homework recommendations.
+          </Text>
+          <Pressable onPress={() => nav.goBack()}>
+            <Text style={{ ...type.bodyBold, color: colors.skyDeep }}>Back to Lobby</Text>
+          </Pressable>
+        </View>
+      </ScreenScaffold>
     )
   }
 
   const { score, total, percentage, weakTopics, strongTopics, topicBreakdown } = quizResult
   const passed = percentage >= 60
   const grade = percentage >= 90 ? 'A' : percentage >= 75 ? 'B' : percentage >= 60 ? 'C' : 'D'
-  const gradeColor = percentage >= 75 ? theme.colors.success : percentage >= 60 ? theme.colors.warning : theme.colors.danger
+  const gradeColor = percentage >= 75 ? colors.sageDeep : percentage >= 60 ? colors.gold : colors.error
+  const gradeWash = percentage >= 75 ? colors.sageWash : percentage >= 60 ? colors.goldWash : colors.errorWash
 
   return (
-    <SafeAreaView style={s.container}>
-      <ScrollView contentContainerStyle={s.content}>
-        {/* Score hero */}
-        <View style={s.hero}>
-          <Text style={s.emoji}>{passed ? '🎉' : '💪'}</Text>
-          <Text style={s.scoreValue} numberOfLines={1}>{Math.round(percentage)}%</Text>
-          <View style={[s.grade, { backgroundColor: gradeColor + '20', borderColor: gradeColor }]}>
-            <Text style={[s.gradeText, { color: gradeColor }]}>Grade {grade}</Text>
+    <ScreenScaffold tint="meadow" scroll={false}>
+      <ScreenHeader
+        title="Your Results"
+        kicker="TRIVIA SCORECARD"
+        onBack={() => nav.navigate('Lobby')}
+      />
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Large Score Panel */}
+        <View style={styles.heroCard}>
+          <Text style={styles.heroEmoji}>{passed ? '🎉' : '🌱'}</Text>
+          <Text style={styles.heroPct}>{Math.round(percentage)}%</Text>
+          
+          <View style={[styles.gradeBadge, { backgroundColor: gradeWash, borderColor: gradeColor }]}>
+            <Text style={[styles.gradeText, { color: gradeColor }]}>Grade {grade}</Text>
           </View>
-          <Text style={s.scoreSub}>{score} out of {total} correct · {passed ? 'Great job!' : 'Keep practicing!'}</Text>
+          
+          <Text style={styles.heroSub}>
+            {score} of {total} questions correct · {passed ? 'Fantastic effort!' : 'Keep cultivating knowledge!'}
+          </Text>
         </View>
 
-        {/* Topic breakdown */}
+        {/* Topic Breakdown Card */}
         {Object.keys(topicBreakdown).length > 0 && (
-          <View style={s.card}>
-            <Text style={s.cardTitle}>Topic Breakdown</Text>
-            {Object.entries(topicBreakdown).map(([topic, pct]) => (
-              <View key={topic} style={s.topicRow}>
-                <Text style={s.topicName}>{topic}</Text>
-                <View style={s.topicBar}>
-                  <View style={[s.topicFill, { width: `${pct}%` as any, backgroundColor: (pct as number) >= 60 ? theme.colors.success : theme.colors.danger }]} />
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Topic Performance</Text>
+            {Object.entries(topicBreakdown).map(([topic, pct]) => {
+              const pass = (pct as number) >= 60
+              const color = pass ? colors.sageDeep : colors.error
+              return (
+                <View key={topic} style={styles.breakdownRow}>
+                  <Text style={styles.breakdownName} numberOfLines={1}>{topic}</Text>
+                  <View style={styles.breakdownTrack}>
+                    <View style={[styles.breakdownFill, { width: `${pct}%` as any, backgroundColor: color }]} />
+                  </View>
+                  <Text style={[styles.breakdownPct, { color }]}>{Math.round(pct as number)}%</Text>
                 </View>
-                <Text style={[s.topicPct, { color: (pct as number) >= 60 ? theme.colors.success : theme.colors.danger }]}>{Math.round(pct as number)}%</Text>
-              </View>
-            ))}
+              )
+            })}
           </View>
         )}
 
-        {/* Weak areas */}
+        {/* Areas for growth */}
         {weakTopics.length > 0 && (
-          <View style={[s.card, s.weakCard]}>
-            <Text style={s.cardTitle}>⚠️ Needs More Practice</Text>
-            {weakTopics.map(t => <View key={t} style={s.topicChip}><Text style={s.topicChipText}>{t}</Text></View>)}
+          <View style={[styles.card, styles.weakCard]}>
+            <Text style={[styles.cardTitle, { color: colors.error }]}>⚠️ Review Recommended</Text>
+            <View style={styles.chipRow}>
+              {weakTopics.map((t: string) => (
+                <View key={t} style={[styles.chip, { backgroundColor: colors.errorWash, borderColor: colors.error }]}>
+                  <Text style={[styles.chipText, { color: colors.error }]}>{t}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         )}
 
-        {/* Strong areas */}
+        {/* Strengths */}
         {strongTopics.length > 0 && (
-          <View style={[s.card, s.strongCard]}>
-            <Text style={s.cardTitle}>✅ You're Strong In</Text>
-            {strongTopics.map(t => <View key={t} style={[s.topicChip, s.topicChipGreen]}><Text style={[s.topicChipText, { color: theme.colors.success }]}>{t}</Text></View>)}
+          <View style={[styles.card, styles.strongCard]}>
+            <Text style={[styles.cardTitle, { color: colors.sageDeep }]}>✅ Expert In</Text>
+            <View style={styles.chipRow}>
+              {strongTopics.map((t: string) => (
+                <View key={t} style={[styles.chip, { backgroundColor: colors.sageWash, borderColor: colors.sageDeep }]}>
+                  <Text style={[styles.chipText, { color: colors.sageDeep }]}>{t}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         )}
 
-        {/* Actions */}
-        <TouchableOpacity style={s.btn} onPress={() => nav.navigate('Homework')}>
-          <Text style={s.btnText}>📚 View My Homework →</Text>
-        </TouchableOpacity>
+        {/* Action Buttons */}
+        <View style={styles.btnColumn}>
+          <PrimaryButton
+            label="📚 Open Grounded Homework"
+            variant="coral"
+            onPress={() => nav.navigate('Homework')}
+            style={styles.btn}
+          />
 
-        <TouchableOpacity style={s.btnSecondary} onPress={() => nav.navigate('Report')}>
-          <Text style={s.btnSecondaryText}>📋 Full Report</Text>
-        </TouchableOpacity>
+          <PrimaryButton
+            label="📋 View Full Report Cards"
+            variant="sky"
+            onPress={() => nav.navigate('Report' as any)}
+            style={styles.btn}
+          />
 
-        <TouchableOpacity style={s.btnGhost} onPress={() => nav.navigate('Chat')}>
-          <Text style={s.btnGhostText}>💬 Ask a Question</Text>
-        </TouchableOpacity>
+          <Pressable
+            onPress={() => nav.navigate('Chat')}
+            style={({ pressed }) => [
+              styles.askBtn,
+              { opacity: pressed ? 0.75 : 1 }
+            ]}
+          >
+            <Text style={styles.askText}>💬 Consult Gemma AI Tutor</Text>
+          </Pressable>
+        </View>
+
+        <OfflineBadge style={{ alignSelf: 'center', marginTop: spacing.md }} />
       </ScrollView>
-    </SafeAreaView>
+    </ScreenScaffold>
   )
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  content: { padding: 20, gap: 16 },
-  hero: { alignItems: 'center', padding: 28, backgroundColor: theme.colors.surface, borderRadius: 24 },
-  emoji: { fontSize: 48, marginBottom: 8 },
-  scoreValue: { fontSize: 64, fontWeight: '900', color: theme.colors.text, lineHeight: 72 },
-  grade: { borderWidth: 2, borderRadius: 30, paddingHorizontal: 18, paddingVertical: 6, marginVertical: 8 },
-  gradeText: { fontSize: 16, fontWeight: '800' },
-  scoreSub: { fontSize: 14, color: theme.colors.textSub, textAlign: 'center' },
-  card: { backgroundColor: theme.colors.surface, borderRadius: 16, padding: 18 },
-  weakCard: { backgroundColor: theme.colors.dangerDim },
-  strongCard: { backgroundColor: theme.colors.successDim },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: theme.colors.text, marginBottom: 14 },
-  topicRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  topicName: { width: 80, fontSize: 13, color: theme.colors.textSub },
-  topicBar: { flex: 1, height: 8, backgroundColor: theme.colors.border, borderRadius: 4, overflow: 'hidden' },
-  topicFill: { height: '100%', borderRadius: 4 },
-  topicPct: { width: 40, fontSize: 13, fontWeight: '700', textAlign: 'right' },
-  topicChip: { backgroundColor: theme.colors.dangerDim + 'aa', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5, alignSelf: 'flex-start', marginBottom: 6 },
-  topicChipGreen: { backgroundColor: theme.colors.successDim + 'aa' },
-  topicChipText: { fontSize: 13, fontWeight: '600', color: theme.colors.danger },
-  btn: { backgroundColor: theme.colors.primary, padding: 18, borderRadius: 16, alignItems: 'center' },
-  btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  btnSecondary: { borderWidth: 2, borderColor: theme.colors.primary, padding: 16, borderRadius: 16, alignItems: 'center' },
-  btnSecondaryText: { color: theme.colors.primary, fontSize: 15, fontWeight: '700' },
-  btnGhost: { padding: 16, alignItems: 'center' },
-  btnGhostText: { color: theme.colors.textSub, fontSize: 15 }
+const styles = StyleSheet.create({
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  waitTitle: {
+    fontFamily: type.heading.fontFamily,
+    fontSize: 20,
+    color: colors.ink,
+    marginBottom: 6,
+    fontWeight: '700',
+  },
+  waitDesc: {
+    ...type.body,
+    color: colors.inkSoft,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  scrollContent: {
+    paddingBottom: spacing.xl,
+  },
+  heroCard: {
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    ...shadow.soft,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+  },
+  heroEmoji: {
+    fontSize: 48,
+    marginBottom: spacing.xs,
+  },
+  heroPct: {
+    fontFamily: type.hero.fontFamily,
+    fontSize: 54,
+    color: colors.ink,
+    fontWeight: '800',
+    lineHeight: 60,
+  },
+  gradeBadge: {
+    borderWidth: 1.5,
+    borderRadius: radius.pill,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    marginVertical: spacing.sm,
+  },
+  gradeText: {
+    ...type.caption,
+    fontWeight: '800',
+  },
+  heroSub: {
+    ...type.small,
+    color: colors.inkSoft,
+    textAlign: 'center',
+  },
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    ...shadow.soft,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  weakCard: {
+    backgroundColor: '#FAF5F5',
+    borderColor: 'rgba(201, 88, 107, 0.15)',
+  },
+  strongCard: {
+    backgroundColor: '#F5FAF6',
+    borderColor: 'rgba(92, 138, 98, 0.15)',
+  },
+  cardTitle: {
+    ...type.subhead,
+    color: colors.ink,
+    marginBottom: spacing.md,
+    fontWeight: '700',
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+    gap: spacing.sm,
+  },
+  breakdownName: {
+    ...type.smallBold,
+    color: colors.inkSoft,
+    width: 90,
+  },
+  breakdownTrack: {
+    flex: 1,
+    height: 8,
+    backgroundColor: colors.paperDeep,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+  },
+  breakdownFill: {
+    height: '100%',
+    borderRadius: radius.pill,
+  },
+  breakdownPct: {
+    ...type.smallBold,
+    width: 38,
+    textAlign: 'right',
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  chip: {
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  chipText: {
+    ...type.caption,
+    fontWeight: '700',
+  },
+  btnColumn: {
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  btn: {
+    width: '100%',
+  },
+  askBtn: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginTop: 4,
+  },
+  askText: {
+    ...type.bodyBold,
+    color: colors.skyDeep,
+  },
 })

@@ -17,6 +17,7 @@ export default function Login() {
     setLoading(true)
     // Validate PIN against default (from .env, seeded in DB)
     await new Promise((r) => setTimeout(r, 400))
+    // @ts-ignore
     if (pin === '1234' || pin === (import.meta.env.VITE_TEACHER_PIN || '1234')) {
       setTeacher({ id: 'teacher-default', name: name.trim() })
     } else {
@@ -122,8 +123,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid var(--danger)',
     borderRadius: 'var(--radius-sm)',
     padding: '8px 12px',
-    fontSize: 13,
-    borderOpacity: 0.3
+    fontSize: 13
   },
   hint: {
     textAlign: 'center',

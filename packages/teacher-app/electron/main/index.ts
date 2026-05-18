@@ -1,3 +1,38 @@
+// Polyfill global canvas-like items for pdf-parse/pdf.js compatibility in Electron Node env
+if (typeof global !== 'undefined') {
+  if (!(global as any).DOMMatrix) {
+    (global as any).DOMMatrix = class DOMMatrix {
+      a = 1; b = 0; c = 0; d = 1; e = 0; f = 0;
+    };
+  }
+  if (!(global as any).ImageData) {
+    (global as any).ImageData = class ImageData {
+      width: number;
+      height: number;
+      data: Uint8ClampedArray;
+      constructor(width: number, height: number) {
+        this.width = width;
+        this.height = height;
+        this.data = new Uint8ClampedArray(width * height * 4);
+      }
+    };
+  }
+  if (!(global as any).Path2D) {
+    (global as any).Path2D = class Path2D {};
+  }
+}
+if (typeof globalThis !== 'undefined') {
+  if (!(globalThis as any).DOMMatrix) {
+    (globalThis as any).DOMMatrix = (global as any).DOMMatrix;
+  }
+  if (!(globalThis as any).ImageData) {
+    (globalThis as any).ImageData = (global as any).ImageData;
+  }
+  if (!(globalThis as any).Path2D) {
+    (globalThis as any).Path2D = (global as any).Path2D;
+  }
+}
+
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import path from 'path'
 import { startServer } from 'edulens-backend'

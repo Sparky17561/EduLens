@@ -1,24 +1,24 @@
 import axios from 'axios'
 
 // Port is discovered from Electron IPC or falls back to 3001
-let BASE_URL = 'http://127.0.0.1:3001'
+export let baseUrl = 'http://127.0.0.1:3001'
 
 export function setBaseUrl(port: number) {
-  BASE_URL = `http://127.0.0.1:${port}`
+  baseUrl = `http://127.0.0.1:${port}`
 }
 
-const api = axios.create({ baseURL: BASE_URL, timeout: 30000 })
+const api = axios.create({ baseURL: baseUrl, timeout: 180000 })
 
 // Update baseURL dynamically
 api.interceptors.request.use((config) => {
-  config.baseURL = BASE_URL
+  config.baseURL = baseUrl
   return config
 })
 
 // ── Session ──────────────────────────────────────────────────────
 export const sessionApi = {
-  start: (teacherId: string, topic: string) =>
-    api.post('/session/start', { teacherId, topic }).then((r) => r.data),
+  start: (teacherId: string, topic: string, knowledgeBaseId?: string) =>
+    api.post('/session/start', { teacherId, topic, knowledgeBaseId }).then((r) => r.data),
 
   join: (params: { sessionId?: string; sessionCode?: string; studentName: string }) =>
     api.post('/session/join', params).then((r) => r.data),
@@ -51,7 +51,13 @@ export const aiApi = {
     api.post('/ai/ask', { sessionId, senderId, senderName, question }).then((r) => r.data),
 
   generate: (sessionId: string, teacherId: string, teacherName: string, topic: string) =>
-    api.post('/ai/generate', { sessionId, teacherId, teacherName, topic }).then((r) => r.data)
+    api.post('/ai/generate', { sessionId, teacherId, teacherName, topic }).then((r) => r.data),
+
+  generateTrivia: (sessionId: string, topic: string, difficulty: string) =>
+    api.post('/ai/generate-trivia', { sessionId, topic, difficulty }).then((r) => r.data),
+
+  generateTriviaPreview: (topic: string, difficulty: string) =>
+    api.post('/ai/generate-trivia-preview', { topic, difficulty }, { timeout: 180000 }).then((r) => r.data)
 }
 
 // ── Quiz ─────────────────────────────────────────────────────────
@@ -73,6 +79,29 @@ export const reportApi = {
 
   export: (sessionId: string) =>
     api.post('/report/export', { sessionId }).then((r) => r.data)
+}
+
+// ── Knowledge Bases ───────────────────────────────────────────────
+export const knowledgeApi = {
+  list: (teacherId: string) =>
+    api.get('/ai/knowledge-bases', { params: { teacherId } }).then((r) => r.data),
+
+  upload: (teacherId: string, name: string, file: File) => {
+    const form = new FormData()
+    form.append('document', file)
+    form.append('name', name)
+    form.append('teacherId', teacherId)
+    return api.post('/ai/knowledge-bases', form, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data)
+  },
+
+  delete: (id: string) =>
+    api.delete(`/ai/knowledge-bases/${id}`).then((r) => r.data)
+}
+
+// ── Sync ──────────────────────────────────────────────────────────
+export const syncApi = {
+  sync: (teacherId: string) =>
+    api.post('/ai/sync', { teacherId }).then((r) => r.data)
 }
 
 export default api

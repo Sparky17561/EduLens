@@ -10,7 +10,13 @@ import QuizManager from './pages/QuizManager'
 import Analytics from './pages/Analytics'
 import Homework from './pages/Homework'
 import Reports from './pages/Reports'
+import TriviaGenerator from './pages/TriviaGenerator'
+import Settings from './pages/Settings'
 import Sidebar from './components/Sidebar'
+
+const AnyRoute = Route as any;
+const AnyRoutes = Routes as any;
+const AnyBrowserRouter = BrowserRouter as any;
 
 declare global {
   interface Window {
@@ -52,10 +58,10 @@ export default function App() {
   }, [])
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={teacher ? <Navigate to="/" /> : <Login />} />
-        <Route
+    <AnyBrowserRouter>
+      <AnyRoutes>
+        <AnyRoute path="/login" element={teacher ? <Navigate to="/" /> : <Login />} />
+        <AnyRoute
           path="/"
           element={
             teacher ? (
@@ -65,28 +71,36 @@ export default function App() {
             )
           }
         />
-        <Route
+        <AnyRoute
           path="/chat"
           element={teacher ? <AppShell><Chat /></AppShell> : <Navigate to="/login" />}
         />
-        <Route
+        <AnyRoute
           path="/quiz"
           element={teacher ? <AppShell><QuizManager /></AppShell> : <Navigate to="/login" />}
         />
-        <Route
+        <AnyRoute
           path="/analytics"
           element={teacher ? <AppShell><Analytics /></AppShell> : <Navigate to="/login" />}
         />
-        <Route
+        <AnyRoute
           path="/homework"
           element={teacher ? <AppShell><Homework /></AppShell> : <Navigate to="/login" />}
         />
-        <Route
+        <AnyRoute
           path="/reports"
           element={teacher ? <AppShell><Reports /></AppShell> : <Navigate to="/login" />}
         />
-        <Route path="*" element={<Navigate to={teacher ? '/' : '/login'} />} />
-      </Routes>
-    </BrowserRouter>
+        <AnyRoute
+          path="/trivia-generator"
+          element={teacher ? <AppShell><TriviaGenerator /></AppShell> : <Navigate to="/login" />}
+        />
+        <AnyRoute
+          path="/settings"
+          element={teacher ? <AppShell><Settings /></AppShell> : <Navigate to="/login" />}
+        />
+        <AnyRoute path="*" element={<Navigate to={teacher ? '/' : '/login'} />} />
+      </AnyRoutes>
+    </AnyBrowserRouter>
   )
 }

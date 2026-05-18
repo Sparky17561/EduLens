@@ -140,6 +140,24 @@ function createTables(db: Database.Database) {
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY(session_id) REFERENCES sessions(id)
     );
+
+    CREATE TABLE IF NOT EXISTS knowledge_bases (
+      id TEXT PRIMARY KEY,
+      teacher_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      file_path TEXT NOT NULL,
+      chunk_count INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY(teacher_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS sync_logs (
+      id TEXT PRIMARY KEY,
+      teacher_id TEXT NOT NULL,
+      synced_at TEXT NOT NULL DEFAULT (datetime('now')),
+      record_count INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'success'
+    );
   `)
 }
 

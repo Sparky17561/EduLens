@@ -1,34 +1,40 @@
 import React, { useState } from 'react'
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Alert } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { View, Text, StyleSheet, ActivityIndicator, Alert, ScrollView, Pressable } from 'react-native'
+import Svg, { Path, Circle } from 'react-native-svg'
 import { useNavigation } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootStackParamList } from '../navigation/AppNavigator'
 import { useSessionStore } from '../store/sessionStore'
 import { quizApi } from '../api/client'
-import { theme } from '../theme'
+import { ScreenScaffold, PrimaryButton, OfflineBadge } from '../components/ui'
+import { ScreenHeader } from '../components/widgets'
+import { colors, type, spacing, radius, shadow } from '../theme/tokens'
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Quiz'>
 
 export default function QuizScreen() {
   const nav = useNavigation<Nav>()
-  const { student, session, activeQuiz, setQuizResult } = useSessionStore()
+  const { student, session, activeQuiz, setQuizResult, setActiveQuiz } = useSessionStore()
   const [current, setCurrent] = useState(0)
-  const [answers, setAnswers] = useState<string[]>([])
+  const [answers, setAnswers] = useState<any[]>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   if (!activeQuiz) {
     return (
-      <SafeAreaView style={s.container}>
-        <View style={s.center}>
-          <Text style={s.emoji}>⏳</Text>
-          <Text style={s.title}>No Quiz Active</Text>
-          <TouchableOpacity onPress={() => nav.goBack()}>
-            <Text style={{ color: theme.colors.primary }}>← Go Back</Text>
-          </TouchableOpacity>
+      <ScreenScaffold tint="dusk">
+        <ScreenHeader title="Trivia Quiz" kicker="NO ACTIVE ASSESSMENT" onBack={() => nav.goBack()} />
+        <View style={styles.center}>
+          <Text style={{ fontSize: 48, marginBottom: 16 }}>⏳</Text>
+          <Text style={styles.waitTitle}>Waiting for Quiz...</Text>
+          <Text style={styles.waitDesc}>
+            There are no active quiz decks currently running in this classroom.
+          </Text>
+          <Pressable onPress={() => nav.goBack()}>
+            <Text style={{ ...type.bodyBold, color: colors.coral }}>Go back to Lobby</Text>
+          </Pressable>
         </View>
-      </SafeAreaView>
+      </ScreenScaffold>
     )
   }
 
@@ -39,105 +45,220 @@ export default function QuizScreen() {
   const handleSelect = (option: string) => setSelected(option)
 
   const handleNext = async () => {
-    if (!selected) return Alert.alert('Select an answer first')
+    if (!selected) {
+      Alert.alert('Select an Answer', 'Please choose one of the options below before moving forward.')
+      return
+    }
     const newAnswers = [...answers, { questionIndex: current, answer: selected }]
-    setAnswers(newAnswers as any)
+    setAnswers(newAnswers)
     setSelected(null)
 
     if (current < total - 1) {
       setCurrent(current + 1)
     } else {
-      // Submit
       setLoading(true)
       try {
         const result = await quizApi.submit(activeQuiz.quizId, session!.id, student!.id, student!.name, newAnswers)
         setQuizResult(result)
+        setActiveQuiz(null)  // Clear quiz so student can't retake it
         nav.navigate('Results')
       } catch (e: any) {
-        Alert.alert('Submission failed', e.message)
+        Alert.alert('Failed to Submit', e.message || 'Make sure you are connected to the teacher\'s network.')
       }
       setLoading(false)
     }
   }
 
   return (
-    <SafeAreaView style={s.container}>
-      {/* Progress */}
-      <View style={s.progressWrap}>
-        <View style={s.progressBar}>
-          <View style={[s.progressFill, { width: `${progress}%` as any }]} />
+    <ScreenScaffold tint="dusk">
+      <ScreenHeader
+        title={`Question ${current + 1}`}
+        kicker="TRIVIA IN PROGRESS"
+      />
+
+      {/* Ghibli-themed Progress bar */}
+      <View style={styles.progressRow}>
+        <View style={styles.track}>
+          <View style={[styles.fill, { width: `${progress}%` as any }]} />
         </View>
-        <Text style={s.progressText}>{current + 1} / {total}</Text>
+        <Text style={styles.countText}>{current + 1} of {total}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={s.content}>
-        {/* Question */}
-        <View style={s.questionCard}>
-          {q.topic && <Text style={s.topicTag}>{q.topic}</Text>}
-          <Text style={s.questionText}>{q.question}</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Question Panel */}
+        <View style={styles.qCard}>
+          {q.topic && <Text style={styles.qKicker}>{q.topic.toUpperCase()}</Text>}
+          <Text style={styles.qText}>{q.question}</Text>
         </View>
 
-        {/* Options */}
-        <View style={s.options}>
-          {q.options.filter(Boolean).map((opt, i) => (
-            <TouchableOpacity
-              key={i}
-              style={[s.option, selected === opt && s.optionSelected]}
-              onPress={() => handleSelect(opt)}
-              activeOpacity={0.8}
-            >
-              <View style={[s.optionCircle, selected === opt && s.optionCircleSelected]}>
-                <Text style={[s.optionLetter, selected === opt && { color: '#fff' }]}>
-                  {String.fromCharCode(65 + i)}
+        {/* Option Grid */}
+        <View style={styles.optionsWrap}>
+          {q.options.filter(Boolean).map((opt: string, idx: number) => {
+            const isSel = selected === opt
+            return (
+              <Pressable
+                key={idx}
+                onPress={() => handleSelect(opt)}
+                style={({ pressed }) => [
+                  styles.option,
+                  isSel ? styles.optionSelected : null,
+                  { transform: [{ scale: pressed ? 0.99 : 1 }] }
+                ]}
+              >
+                <View style={[styles.optIndex, isSel ? styles.optIndexSelected : null]}>
+                  <Text style={[styles.optLetter, isSel ? { color: colors.white } : null]}>
+                    {String.fromCharCode(65 + idx)}
+                  </Text>
+                </View>
+                <Text style={[styles.optText, isSel ? styles.optTextSelected : null]}>
+                  {opt}
                 </Text>
-              </View>
-              <Text style={[s.optionText, selected === opt && { color: theme.colors.primary, fontWeight: '700' }]}>{opt}</Text>
-            </TouchableOpacity>
-          ))}
+              </Pressable>
+            )
+          })}
         </View>
 
-        {/* Next button */}
-        <TouchableOpacity
-          style={[s.nextBtn, (!selected || loading) && s.nextBtnDisabled]}
+        <PrimaryButton
+          label={loading ? 'Submitting...' : current < total - 1 ? 'Next Question' : 'Submit Answers'}
+          variant="coral"
           onPress={handleNext}
           disabled={!selected || loading}
-          activeOpacity={0.85}
-        >
-          {loading
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={s.nextBtnText}>{current < total - 1 ? 'Next Question →' : '✓ Submit Quiz'}</Text>}
-        </TouchableOpacity>
+          style={{ marginTop: spacing.md }}
+          icon={
+            loading ? (
+              <ActivityIndicator color={colors.white} style={{ marginRight: 8 }} />
+            ) : (
+              <Svg width={20} height={20} viewBox="0 0 24 24">
+                <Path d="M5 12 H19 M12 5 L19 12 L12 19" stroke={colors.white} strokeWidth="2.6"
+                      fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              </Svg>
+            )
+          }
+        />
+
+        <OfflineBadge style={{ alignSelf: 'center', marginTop: spacing.lg }} />
       </ScrollView>
-    </SafeAreaView>
+    </ScreenScaffold>
   )
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
-  emoji: { fontSize: 48 },
-  title: { fontSize: 22, fontWeight: '700', color: theme.colors.text },
-  progressWrap: { padding: 16, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  progressBar: { flex: 1, height: 6, backgroundColor: theme.colors.border, borderRadius: 3, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: theme.colors.primary, borderRadius: 3 },
-  progressText: { fontSize: 13, fontWeight: '600', color: theme.colors.textSub, width: 48, textAlign: 'right' },
-  content: { padding: 16, paddingTop: 8, gap: 16 },
-  questionCard: { backgroundColor: theme.colors.surface, borderRadius: 18, padding: 22 },
-  topicTag: { fontSize: 11, fontWeight: '700', color: theme.colors.primary, letterSpacing: 0.5, marginBottom: 10, textTransform: 'uppercase' },
-  questionText: { fontSize: 20, fontWeight: '700', color: theme.colors.text, lineHeight: 28 },
-  options: { gap: 10 },
-  option: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    padding: 16, borderRadius: 14,
-    borderWidth: 2, borderColor: theme.colors.border,
-    backgroundColor: '#fff'
+const styles = StyleSheet.create({
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
   },
-  optionSelected: { borderColor: theme.colors.primary, backgroundColor: theme.colors.primaryDim },
-  optionCircle: { width: 34, height: 34, borderRadius: 17, borderWidth: 2, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center' },
-  optionCircleSelected: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
-  optionLetter: { fontSize: 14, fontWeight: '800', color: theme.colors.textSub },
-  optionText: { flex: 1, fontSize: 15, color: theme.colors.text, lineHeight: 22 },
-  nextBtn: { backgroundColor: theme.colors.primary, padding: 18, borderRadius: 16, alignItems: 'center', marginTop: 8 },
-  nextBtnDisabled: { opacity: 0.45 },
-  nextBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' }
+  waitTitle: {
+    fontFamily: type.heading.fontFamily,
+    fontSize: 20,
+    color: colors.ink,
+    marginBottom: 6,
+    fontWeight: '700',
+  },
+  waitDesc: {
+    ...type.body,
+    color: colors.inkSoft,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  track: {
+    flex: 1,
+    height: 10,
+    backgroundColor: colors.paperDeep,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  fill: {
+    height: '100%',
+    backgroundColor: colors.skyDeep,
+    borderRadius: radius.pill,
+  },
+  countText: {
+    ...type.caption,
+    color: colors.inkSoft,
+    minWidth: 40,
+    textAlign: 'right',
+  },
+  scrollContent: {
+    paddingBottom: spacing.xl,
+  },
+  qCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    ...shadow.soft,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+  },
+  qKicker: {
+    ...type.caption,
+    color: colors.coralDeep,
+    marginBottom: 8,
+  },
+  qText: {
+    fontFamily: type.heading.fontFamily,
+    fontSize: 20,
+    lineHeight: 28,
+    color: colors.ink,
+    fontWeight: '700',
+  },
+  optionsWrap: {
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  option: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: radius.lg,
+    padding: spacing.sm + 4,
+    ...shadow.soft,
+  },
+  optionSelected: {
+    borderColor: colors.sky,
+    backgroundColor: colors.skyWash,
+  },
+  optIndex: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+    backgroundColor: colors.paper,
+  },
+  optIndexSelected: {
+    backgroundColor: colors.skyDeep,
+    borderColor: colors.skyDeep,
+  },
+  optLetter: {
+    ...type.bodyBold,
+    color: colors.inkSoft,
+    fontSize: 14,
+  },
+  optText: {
+    ...type.body,
+    flex: 1,
+    color: colors.ink,
+    fontSize: 15,
+  },
+  optTextSelected: {
+    fontWeight: '700',
+    color: colors.skyDeep,
+  },
 })

@@ -10,6 +10,7 @@
   "scripts": {
     "dev:backend": "npm run dev --workspace=packages/backend",
     "dev:teacher": "npm run dev --workspace=packages/teacher-app",
+    "build:backend": "npm run build --workspace=packages/backend",
     "install:all": "npm install"
   },
   "devDependencies": {

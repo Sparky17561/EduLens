@@ -1,11 +1,13 @@
 import React from 'react'
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { View, Text, StyleSheet, ScrollView } from 'react-native'
+import Svg, { Path } from 'react-native-svg'
 import { useNavigation } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootStackParamList } from '../navigation/AppNavigator'
 import { useSessionStore } from '../store/sessionStore'
-import { theme } from '../theme'
+import { ScreenScaffold, PrimaryButton, OfflineBadge } from '../components/ui'
+import { ScreenHeader } from '../components/widgets'
+import { colors, type, spacing, radius, shadow } from '../theme/tokens'
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Homework'>
 
@@ -16,113 +18,229 @@ export default function HomeworkScreen() {
 
   if (!hw || !hw.followUpQuestions?.length) {
     return (
-      <SafeAreaView style={s.container}>
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => nav.goBack()}><Text style={s.back}>← Back</Text></TouchableOpacity>
+      <ScreenScaffold tint="study">
+        <ScreenHeader title="Homework" kicker="NO COMPLETED QUIZ" onBack={() => nav.goBack()} />
+        <View style={styles.center}>
+          <Text style={{ fontSize: 48, marginBottom: 16 }}>📖</Text>
+          <Text style={styles.waitTitle}>Homework Pending</Text>
+          <Text style={styles.waitDesc}>
+            Once you submit your live classroom quiz answers, Gemma AI will immediately assemble a custom RAG homework assignment for you.
+          </Text>
+          <PrimaryButton label="Go back to Results" variant="sky" onPress={() => nav.goBack()} style={{ width: '80%' }} />
         </View>
-        <View style={s.center}>
-          <Text style={{ fontSize: 40 }}>⏳</Text>
-          <Text style={s.title}>Homework Pending</Text>
-          <Text style={s.sub}>Complete the quiz to get your personalized homework</Text>
-        </View>
-      </SafeAreaView>
+      </ScreenScaffold>
     )
   }
 
   return (
-    <SafeAreaView style={s.container}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => nav.goBack()}><Text style={s.back}>← Back</Text></TouchableOpacity>
-        <Text style={s.headerTitle}>My Homework</Text>
-        <View style={{ width: 60 }} />
-      </View>
+    <ScreenScaffold tint="study" scroll={false}>
+      <ScreenHeader
+        title="My Homework"
+        kicker="PERSONALIZED NCERT RECAP"
+        onBack={() => nav.goBack()}
+      />
 
-      <ScrollView contentContainerStyle={s.content}>
-        {/* Concept recap */}
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Concept Recap Card */}
         {hw.conceptRecap && (
-          <View style={s.card}>
-            <Text style={s.sectionTitle}>📖 Concept Recap</Text>
-            <Text style={s.bodyText}>{hw.conceptRecap}</Text>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>📖 Concept Recap</Text>
+            <Text style={styles.bodyText}>{hw.conceptRecap}</Text>
           </View>
         )}
 
-        {/* Follow-up questions */}
+        {/* Follow-up Questions Card */}
         {hw.followUpQuestions?.length > 0 && (
-          <View style={s.card}>
-            <Text style={s.sectionTitle}>❓ Follow-up Questions</Text>
-            <Text style={s.hint}>Practice these on your own or ask your teacher</Text>
-            {hw.followUpQuestions.map((q, i) => (
-              <View key={i} style={s.qRow}>
-                <View style={s.qNum}><Text style={s.qNumText}>{i + 1}</Text></View>
-                <Text style={s.qText}>{q}</Text>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>❓ Concept Self-Check</Text>
+            <Text style={styles.hint}>Practice answering these in your notebook:</Text>
+            {hw.followUpQuestions.map((q: string, idx: number) => (
+              <View key={idx} style={styles.qRow}>
+                <View style={styles.qIndexCircle}>
+                  <Text style={styles.qIndexText}>{idx + 1}</Text>
+                </View>
+                <Text style={styles.qText}>{q}</Text>
               </View>
             ))}
           </View>
         )}
 
-        {/* Revision tasks */}
+        {/* Revision Tasks Card */}
         {hw.revisionTasks?.length > 0 && (
-          <View style={s.card}>
-            <Text style={s.sectionTitle}>✏️ Revision Tasks</Text>
-            {hw.revisionTasks.map((t, i) => (
-              <View key={i} style={s.taskRow}>
-                <Text style={s.bullet}>•</Text>
-                <Text style={s.taskText}>{t}</Text>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>✏️ Action Revision Checklist</Text>
+            {hw.revisionTasks.map((t: string, idx: number) => (
+              <View key={idx} style={styles.taskRow}>
+                <View style={styles.bulletBox}>
+                  <Svg width={12} height={12} viewBox="0 0 24 24">
+                    <Path d="M20 6 L9 17 L4 12" stroke={colors.skyDeep} strokeWidth="3"
+                          fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                </View>
+                <Text style={styles.taskText}>{t}</Text>
               </View>
             ))}
           </View>
         )}
 
-        {/* Practice challenge */}
+        {/* Practice Challenge Card */}
         {hw.practiceChallenge && (
-          <View style={[s.card, s.challengeCard]}>
-            <Text style={s.sectionTitle}>🎯 Practice Challenge</Text>
-            <Text style={s.challengeText}>{hw.practiceChallenge}</Text>
+          <View style={[styles.card, styles.challengeCard]}>
+            <Text style={[styles.sectionTitle, { color: colors.coralDeep }]}>🎯 Knowledge Challenge</Text>
+            <Text style={styles.challengeText}>"{hw.practiceChallenge}"</Text>
           </View>
         )}
 
-        {/* Ask teacher prompts */}
+        {/* Ask your teacher Card */}
         {hw.askTeacherPrompts?.length > 0 && (
-          <View style={s.card}>
-            <Text style={s.sectionTitle}>🙋 Ask Your Teacher</Text>
-            {hw.askTeacherPrompts.map((p, i) => (
-              <View key={i} style={[s.taskRow, { backgroundColor: theme.colors.primaryDim, padding: 10, borderRadius: 10, marginBottom: 6 }]}>
-                <Text style={s.taskText}>{p}</Text>
+          <View style={styles.card}>
+            <Text style={[styles.sectionTitle, { color: colors.sageDeep }]}>🙋 Discuss with your Teacher</Text>
+            <Text style={styles.hint}>Keep these questions handy for the next lecture session:</Text>
+            {hw.askTeacherPrompts.map((p: string, idx: number) => (
+              <View key={idx} style={styles.promptBubble}>
+                <Text style={styles.promptText}>"{p}"</Text>
               </View>
             ))}
           </View>
         )}
 
-        <TouchableOpacity style={s.btn} onPress={() => nav.navigate('Report')}>
-          <Text style={s.btnText}>📋 View Full Report</Text>
-        </TouchableOpacity>
+        <PrimaryButton
+          label="View Full Report Card"
+          variant="sky"
+          onPress={() => nav.navigate('Report' as any)}
+          style={{ marginTop: spacing.md }}
+        />
+
+        <OfflineBadge style={{ alignSelf: 'center', marginTop: spacing.md }} />
       </ScrollView>
-    </SafeAreaView>
+    </ScreenScaffold>
   )
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
-  back: { color: theme.colors.primary, fontSize: 16 },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: theme.colors.text },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
-  title: { fontSize: 22, fontWeight: '700', color: theme.colors.text },
-  sub: { fontSize: 14, color: theme.colors.textMuted, textAlign: 'center' },
-  content: { padding: 16, gap: 14 },
-  card: { backgroundColor: theme.colors.surface, borderRadius: 16, padding: 18 },
-  challengeCard: { backgroundColor: '#f0f0ff', borderWidth: 1.5, borderColor: theme.colors.primary + '40' },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: theme.colors.text, marginBottom: 12 },
-  hint: { fontSize: 12, color: theme.colors.textMuted, marginBottom: 12 },
-  bodyText: { fontSize: 14, lineHeight: 22, color: theme.colors.text },
-  challengeText: { fontSize: 15, lineHeight: 24, color: theme.colors.text, fontStyle: 'italic' },
-  qRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', marginBottom: 12 },
-  qNum: { width: 28, height: 28, borderRadius: 14, backgroundColor: theme.colors.primary, alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 },
-  qNumText: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  qText: { flex: 1, fontSize: 14, lineHeight: 22, color: theme.colors.text },
-  taskRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  bullet: { fontSize: 18, color: theme.colors.primary, lineHeight: 22 },
-  taskText: { flex: 1, fontSize: 14, lineHeight: 22, color: theme.colors.text },
-  btn: { backgroundColor: theme.colors.primary, padding: 18, borderRadius: 16, alignItems: 'center', marginTop: 4 },
-  btnText: { color: '#fff', fontSize: 16, fontWeight: '700' }
+const styles = StyleSheet.create({
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  waitTitle: {
+    fontFamily: type.heading.fontFamily,
+    fontSize: 20,
+    color: colors.ink,
+    marginBottom: 6,
+    fontWeight: '700',
+  },
+  waitDesc: {
+    ...type.body,
+    color: colors.inkSoft,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  scrollContent: {
+    paddingBottom: spacing.xl,
+  },
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    ...shadow.soft,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+  },
+  challengeCard: {
+    backgroundColor: colors.coralWash,
+    borderColor: colors.coralLight,
+    borderWidth: 1.5,
+  },
+  sectionTitle: {
+    fontFamily: type.heading.fontFamily,
+    fontSize: 18,
+    color: colors.ink,
+    marginBottom: spacing.xs,
+    fontWeight: '700',
+  },
+  hint: {
+    ...type.small,
+    color: colors.inkSoft,
+    marginBottom: spacing.sm,
+  },
+  bodyText: {
+    ...type.body,
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.ink,
+  },
+  challengeText: {
+    ...type.bodyBold,
+    fontSize: 15,
+    fontStyle: 'italic',
+    color: colors.coralDeep,
+    lineHeight: 22,
+  },
+  qRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  qIndexCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.skyWash,
+    borderWidth: 1.5,
+    borderColor: colors.sky,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qIndexText: {
+    ...type.caption,
+    color: colors.skyDeep,
+  },
+  qText: {
+    ...type.body,
+    flex: 1,
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.ink,
+  },
+  taskRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  bulletBox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    backgroundColor: colors.skyWash,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  taskText: {
+    ...type.body,
+    flex: 1,
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.ink,
+  },
+  promptBubble: {
+    backgroundColor: colors.sageWash,
+    borderWidth: 1,
+    borderColor: colors.sageLight,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  promptText: {
+    ...type.bodyBold,
+    fontStyle: 'italic',
+    color: colors.sageDeep,
+    fontSize: 14,
+    lineHeight: 20,
+  },
 })

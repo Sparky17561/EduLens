@@ -8,7 +8,7 @@ export function setBackendUrl(host: string, port: number) {
   console.log('[API] Backend URL set to:', BASE_URL)
 }
 
-const api = axios.create({ baseURL: BASE_URL, timeout: 30000 })
+const api = axios.create({ baseURL: BASE_URL, timeout: 180000 })
 
 export const sessionApi = {
   join: (params: { sessionId?: string; sessionCode?: string; studentName: string }) =>

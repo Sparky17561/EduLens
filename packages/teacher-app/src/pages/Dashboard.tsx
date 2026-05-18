@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store/appStore'
-import { sessionApi } from '../api/client'
+import { sessionApi, knowledgeApi } from '../api/client'
 import { useWebSocket } from '../hooks/useWebSocket'
 import QRCode from 'qrcode.react'
 
@@ -10,17 +10,26 @@ export default function Dashboard() {
   const [topic, setTopic] = useState('General')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [knowledgeBases, setKnowledgeBases] = useState<any[]>([])
+  const [selectedKbId, setSelectedKbId] = useState<string>('')
   const navigate = useNavigate()
 
-  // Connect WebSocket when session is active
   useWebSocket(activeSession?.id || null)
+
+  // Fetch available knowledge bases
+  useEffect(() => {
+    if (!teacher) return
+    knowledgeApi.list(teacher.id)
+      .then(d => setKnowledgeBases(d.knowledgeBases || []))
+      .catch(() => {})
+  }, [teacher])
 
   const startSession = async () => {
     if (!teacher) return
     setLoading(true)
     setError('')
     try {
-      const data = await sessionApi.start(teacher.id, topic)
+      const data = await sessionApi.start(teacher.id, topic, selectedKbId || undefined)
       setActiveSession({
         id: data.sessionId,
         code: data.sessionCode,
@@ -108,6 +117,27 @@ export default function Dashboard() {
           <p style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>
             This helps the AI generate relevant content and homework
           </p>
+
+          {/* Knowledge Base Selector */}
+          {knowledgeBases.length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <label className="form-label">📚 Lesson Material (optional)</label>
+              <select
+                className="input"
+                value={selectedKbId}
+                onChange={e => setSelectedKbId(e.target.value)}
+                style={{ marginTop: 6 }}
+              >
+                <option value="">— None (use built-in NCERT knowledge) —</option>
+                {knowledgeBases.map(kb => (
+                  <option key={kb.id} value={kb.id}>{kb.name}</option>
+                ))}
+              </select>
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                Select a PDF to supplement AI answers with your custom material.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -172,6 +202,12 @@ export default function Dashboard() {
                 <button className="btn btn-ghost btn-sm" onClick={() => navigate('/chat')}>💬 Chat</button>
                 <button className="btn btn-ghost btn-sm" onClick={() => navigate('/quiz')}>✏️ Quiz</button>
                 <button className="btn btn-ghost btn-sm" onClick={() => navigate('/analytics')}>📊 Analytics</button>
+              </div>
+              
+              <div style={{ ...styles.actionRow, marginTop: 12 }}>
+                <button className="btn btn-primary btn-sm" onClick={() => navigate('/trivia-generator')} style={{ width: '100%' }}>
+                  💡 Generate AI Interactive Trivia
+                </button>
               </div>
             </div>
 

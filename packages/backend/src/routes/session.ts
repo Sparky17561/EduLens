@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express'
 import { getDb } from '../db/database'
 import { generateId, generateSessionCode, getLocalIP } from '../utils/codeGenerator'
 import { broadcastToSession } from '../websocket/wsServer'
+import { generateFlashcards } from '../services/aiService'
+import { loadKnowledgeBase, clearRagContext } from '../services/ragService'
 import QRCode from 'qrcode'
 
 const router = Router()
@@ -9,7 +11,7 @@ const router = Router()
 // POST /session/start
 router.post('/start', async (req: Request, res: Response) => {
   try {
-    const { teacherId, topic } = req.body
+    const { teacherId, topic, knowledgeBaseId } = req.body
     if (!teacherId) return res.status(400).json({ error: 'teacherId required' })
 
     const db = getDb()
@@ -38,6 +40,28 @@ router.post('/start', async (req: Request, res: Response) => {
       INSERT OR IGNORE INTO analytics_summary (id, session_id) VALUES (?, ?)
     `).run(generateId('analytics'), sessionId)
 
+    // Load knowledge base into RAG if provided
+    let kbName = null
+    if (knowledgeBaseId) {
+      const kb = db.prepare('SELECT * FROM knowledge_bases WHERE id = ?').get(knowledgeBaseId) as any
+      if (kb) {
+        clearRagContext()
+        await loadKnowledgeBase(kb.file_path, kb.name)
+        kbName = kb.name
+      }
+    } else {
+      clearRagContext() // clear previous session context
+    }
+
+    // Generate flashcards in the background and broadcast when ready
+    generateFlashcards(topic || 'General').then(flashcards => {
+      broadcastToSession(sessionId, {
+        event: 'flashcards_ready',
+        sessionId,
+        payload: { topic: topic || 'General', flashcards }
+      })
+    }).catch(err => console.warn('[Session] Flashcard generation failed:', err))
+
     res.json({
       sessionId,
       sessionCode,
@@ -45,7 +69,8 @@ router.post('/start', async (req: Request, res: Response) => {
       hostIp,
       port,
       joinUrl,
-      topic: topic || 'General'
+      topic: topic || 'General',
+      knowledgeBaseName: kbName
     })
   } catch (err: any) {
     console.error('[session/start]', err)

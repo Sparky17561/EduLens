@@ -10,6 +10,8 @@ export type WSEventType =
   | 'quiz_submitted'
   | 'homework_ready'
   | 'session_ended'
+  | 'start_video'
+  | 'flashcards_ready'
   | 'ping'
   | 'pong'
 

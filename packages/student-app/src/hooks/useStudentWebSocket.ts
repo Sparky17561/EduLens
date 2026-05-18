@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useSessionStore } from '../store/sessionStore'
 
 export function useStudentWebSocket() {
-  const { session, student, addMessage, setActiveQuiz, setSessionEnded, setQuizResult } = useSessionStore()
+  const { session, student, addMessage, setActiveQuiz, setSessionEnded, setQuizResult, setFlashcards, setPendingQuiz } = useSessionStore()
   const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
@@ -60,7 +60,14 @@ export function useStudentWebSocket() {
               break
 
             case 'quiz_started':
+              // Skip if student already submitted a quiz this session
+              if (useSessionStore.getState().quizResult) {
+                console.log('[WS] quiz_started ignored — student already completed a quiz this session.')
+                break
+              }
+              // Store quiz but DON'T auto-navigate — show popup instead
               setActiveQuiz({ quizId: msg.payload.quizId, questions: msg.payload.questions })
+              setPendingQuiz(true)
               break
 
             case 'session_ended':
@@ -75,6 +82,12 @@ export function useStudentWebSocket() {
                   ...latestStore.quizResult,
                   homework: msg.payload.homework
                 })
+              }
+              break
+
+            case 'flashcards_ready':
+              if (msg.payload.flashcards) {
+                setFlashcards(msg.payload.flashcards as any)
               }
               break
           }

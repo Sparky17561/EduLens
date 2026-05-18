@@ -10,6 +10,7 @@ import QuizScreen from '../screens/QuizScreen'
 import ResultsScreen from '../screens/ResultsScreen'
 import HomeworkScreen from '../screens/HomeworkScreen'
 import ReportScreen from '../screens/ReportScreen'
+import FlashcardScreen from '../screens/FlashcardScreen'
 
 export type RootStackParamList = {
   Welcome: undefined
@@ -21,9 +22,11 @@ export type RootStackParamList = {
   Results: undefined
   Homework: undefined
   Report: undefined
+  Flashcards: undefined
 }
 
 import { useStudentWebSocket } from '../hooks/useStudentWebSocket'
+import { navigationRef } from './RootNavigation'
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
 
@@ -31,7 +34,7 @@ export default function AppNavigator() {
   useStudentWebSocket()
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         initialRouteName="Welcome"
         screenOptions={{
@@ -49,6 +52,7 @@ export default function AppNavigator() {
         <Stack.Screen name="Results"  component={ResultsScreen} />
         <Stack.Screen name="Homework" component={HomeworkScreen} />
         <Stack.Screen name="Report"   component={ReportScreen} />
+        <Stack.Screen name="Flashcards" component={FlashcardScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   )

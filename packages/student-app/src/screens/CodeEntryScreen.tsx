@@ -1,12 +1,15 @@
 import React, { useState } from 'react'
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { View, Text, TextInput, Pressable, StyleSheet, Alert, ActivityIndicator, ScrollView } from 'react-native'
+import Svg, { Path } from 'react-native-svg'
 import { useNavigation } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootStackParamList } from '../navigation/AppNavigator'
 import { useSessionStore } from '../store/sessionStore'
 import { sessionApi, setBackendUrl } from '../api/client'
-import { theme } from '../theme'
+import { ScreenScaffold, PrimaryButton, OfflineBadge } from '../components/ui'
+import { ScreenHeader } from '../components/widgets'
+import Illustration from '../components/Illustration'
+import { colors, type, spacing, radius, shadow } from '../theme/tokens'
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'CodeEntry'>
 
@@ -18,8 +21,8 @@ export default function CodeEntryScreen() {
   const [loading, setLoading] = useState(false)
 
   const handleJoin = async () => {
-    if (!code.trim() || code.length !== 6) return Alert.alert('Enter the 6-character session code')
-    if (!host.trim()) return Alert.alert('Enter the teacher\'s IP address (shown on the QR screen)')
+    if (!code.trim() || code.length !== 6) return Alert.alert('Enter room code', 'Please fill in the 6-character room code.')
+    if (!host.trim()) return Alert.alert('Enter teacher IP', "Please enter the teacher's IP address (e.g. 192.168.1.5)")
     if (!student) return
 
     setLoading(true)
@@ -30,81 +33,144 @@ export default function CodeEntryScreen() {
       setSession({ id: result.sessionId, code: result.sessionCode, topic: result.topic, host: host.trim(), port: 3001 })
       nav.navigate('Lobby')
     } catch (err: any) {
-      Alert.alert('Failed to join', err.response?.data?.error || err.message)
+      Alert.alert('Unable to Connect', err.response?.data?.error || err.message || 'Make sure both devices are on the same Wi-Fi.')
     }
     setLoading(false)
   }
 
+  const isBtnDisabled = !code || code.length !== 6 || !host || loading
+
   return (
-    <SafeAreaView style={s.container}>
-      <View style={s.content}>
-        <TouchableOpacity onPress={() => nav.goBack()} style={s.back}>
-          <Text style={s.backText}>← Back</Text>
-        </TouchableOpacity>
+    <ScreenScaffold tint="dawn">
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <ScreenHeader
+          title="Session Code"
+          kicker="ENTER ROOM CODE"
+          onBack={() => nav.goBack()}
+        />
 
-        <Text style={s.title}>Enter Session Code</Text>
-        <Text style={s.sub}>Ask your teacher for the 6-character code shown on their screen</Text>
+        {/* hero Ghibli illustration */}
+        <View style={styles.hero}>
+          <Illustration name="pinUnlock" height={150} rounded={radius.lg} />
+        </View>
 
-        <View style={s.codeWrap}>
+        {/* Title */}
+        <Text style={styles.title}>Join Class Room</Text>
+        <Text style={styles.sub}>
+          Ask your teacher for the 6-character code and their IP address shown on the dashboard.
+        </Text>
+
+        {/* Code Input Card */}
+        <View style={styles.card}>
+          <Text style={styles.label}>6-CHARACTER ROOM CODE</Text>
           <TextInput
-            style={s.codeInput}
+            style={styles.codeInput}
             value={code}
             onChangeText={t => setCode(t.toUpperCase().slice(0, 6))}
-            placeholder="e.g. K7MX2P"
-            placeholderTextColor={theme.colors.textMuted}
+            placeholder="K7MX2P"
+            placeholderTextColor={colors.inkFaint}
             autoCapitalize="characters"
-            autoFocus
             maxLength={6}
-            keyboardType="default"
+            autoFocus
           />
         </View>
 
-        <Text style={s.label}>Teacher's IP Address</Text>
-        <TextInput
-          style={s.ipInput}
-          value={host}
-          onChangeText={setHost}
-          placeholder="e.g. 192.168.1.42"
-          placeholderTextColor={theme.colors.textMuted}
-          keyboardType="decimal-pad"
-        />
-        <Text style={s.ipHint}>The teacher's IP is shown under the QR code on their screen</Text>
+        {/* IP Input Card */}
+        <View style={styles.card}>
+          <Text style={styles.label}>TEACHER'S IP ADDRESS</Text>
+          <TextInput
+            style={styles.ipInput}
+            value={host}
+            onChangeText={setHost}
+            placeholder="e.g. 192.168.1.5"
+            placeholderTextColor={colors.inkFaint}
+            keyboardType="numeric"
+          />
+          <Text style={styles.hint}>
+            Listed right under the QR code on the teacher's display.
+          </Text>
+        </View>
 
-        <TouchableOpacity
-          style={[s.btn, (!code || code.length !== 6 || !host) && s.btnDisabled]}
+        <PrimaryButton
+          label={loading ? 'Connecting...' : 'Join Classroom'}
+          variant="coral"
           onPress={handleJoin}
-          disabled={loading || !code || code.length !== 6 || !host}
-          activeOpacity={0.85}
-        >
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>Join Session →</Text>}
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+          disabled={isBtnDisabled}
+          style={{ marginTop: spacing.md }}
+          icon={
+            loading ? (
+              <ActivityIndicator color={colors.white} style={{ marginRight: 8 }} />
+            ) : (
+              <Svg width={20} height={20} viewBox="0 0 24 24">
+                <Path d="M5 12 H19 M12 5 L19 12 L12 19" stroke={colors.white} strokeWidth="2.6"
+                      fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              </Svg>
+            )
+          }
+        />
+
+        <OfflineBadge style={{ alignSelf: 'center', marginTop: spacing.lg }} />
+      </ScrollView>
+    </ScreenScaffold>
   )
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  content: { flex: 1, padding: 24 },
-  back: { marginBottom: 24 },
-  backText: { color: theme.colors.primary, fontSize: 16 },
-  title: { fontSize: 28, fontWeight: '800', color: theme.colors.text, marginBottom: 8 },
-  sub: { fontSize: 14, color: theme.colors.textSub, marginBottom: 32, lineHeight: 20 },
-  codeWrap: { marginBottom: 28 },
+const styles = StyleSheet.create({
+  scrollContent: {
+    paddingBottom: spacing.xl,
+  },
+  hero: { marginTop: spacing.xs, marginBottom: spacing.md, alignItems: 'center' },
+  title: {
+    fontFamily: type.hero.fontFamily,
+    fontSize: 24, lineHeight: 30,
+    color: colors.ink,
+    fontWeight: '700',
+  },
+  sub: {
+    ...type.body,
+    color: colors.inkSoft,
+    marginTop: 6,
+    marginBottom: spacing.md,
+  },
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    ...shadow.soft,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  label: {
+    ...type.caption,
+    color: colors.skyDeep,
+    marginBottom: 8,
+  },
   codeInput: {
-    fontSize: 36, fontWeight: '800', letterSpacing: 12,
-    textAlign: 'center', color: theme.colors.primary,
-    borderBottomWidth: 3, borderBottomColor: theme.colors.primary,
-    paddingVertical: 12
+    ...type.hero,
+    fontSize: 28,
+    textAlign: 'center',
+    letterSpacing: 8,
+    color: colors.coralDeep,
+    paddingVertical: 8,
+    backgroundColor: colors.paper,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.line,
   },
-  label: { fontSize: 13, fontWeight: '600', color: theme.colors.textSub, marginBottom: 8 },
   ipInput: {
-    borderWidth: 1.5, borderColor: theme.colors.border,
-    borderRadius: 12, padding: 14, fontSize: 16,
-    color: theme.colors.text, marginBottom: 8
+    ...type.body,
+    fontSize: 16,
+    color: colors.ink,
+    padding: 10,
+    backgroundColor: colors.paper,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.line,
   },
-  ipHint: { fontSize: 12, color: theme.colors.textMuted, marginBottom: 28 },
-  btn: { backgroundColor: theme.colors.primary, padding: 18, borderRadius: 16, alignItems: 'center' },
-  btnDisabled: { opacity: 0.5 },
-  btnText: { color: '#fff', fontSize: 17, fontWeight: '700' }
+  hint: {
+    ...type.small,
+    color: colors.inkFaint,
+    marginTop: 6,
+  },
 })
