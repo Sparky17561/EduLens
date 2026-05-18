@@ -1,4 +1,5 @@
 import React from 'react'
+import { Icon } from './Icon'
 
 export interface Citation {
   label?: string
@@ -25,10 +26,13 @@ export function CitationBlock({
           style={{
             fontSize: 11,
             color: confidence === 'low' ? 'var(--danger)' : 'var(--warning)',
-            marginBottom: citations?.length ? 6 : 0
+            marginBottom: citations?.length ? 6 : 0,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
           }}
         >
-          {confidence === 'low' ? '⚠️' : 'ℹ️'}{' '}
+          <Icon name={confidence === 'low' ? 'warning' : 'info'} size={12} />
           {confidenceNote || (confidence === 'low' ? 'Uncertain answer' : 'Verify with teacher')}
         </div>
       )}
@@ -41,10 +45,17 @@ export function CitationBlock({
             marginTop: 4,
             padding: '4px 8px',
             background: 'rgba(99,102,241,0.08)',
-            borderRadius: 6
+            borderRadius: 6,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
           }}
         >
-          {c.label || `📖 From ${c.source}, p.${c.page}`}
+          {c.label || (
+            <>
+              <Icon name="book" size={12} /> From {c.source}, p.{c.page}
+            </>
+          )}
         </div>
       ))}
     </div>

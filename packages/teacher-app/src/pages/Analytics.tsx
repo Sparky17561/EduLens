@@ -5,6 +5,8 @@ import { aiApi } from '../api/client'
 import PerformanceHeatmap from '../components/PerformanceHeatmap'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line } from 'recharts'
 import { LoadingBlock } from '../components/ui'
+import { Icon } from '../components/Icon'
+import { StoryImage } from '../components/StoryImage'
 
 export default function Analytics() {
   const { activeSession, students } = useAppStore()
@@ -41,8 +43,10 @@ export default function Analytics() {
   if (!activeSession) {
     return (
       <div className="page-body animate-in">
-        <div className="empty-state">
-          <div className="empty-icon">📊</div>
+        <div className="empty-state empty-state-modern">
+          <span className="empty-icon-bubble icon-bubble-primary">
+            <Icon name="analytics" size={32} />
+          </span>
           <h3>No Active Session</h3>
           <p>Start a session and run a quiz</p>
         </div>
@@ -52,12 +56,26 @@ export default function Analytics() {
 
   return (
     <div className="page-body animate-in">
-      <div className="page-header">
-        <div className="page-header-left">
-          <h2>Analytics</h2>
-          <p>Session {activeSession.code} · Live insights</p>
+      <div className="story-hero story-hero-compact">
+        <div className="story-hero-text">
+          <span className="kicker">READING THE SKY</span>
+          <h2 style={{ margin: '4px 0' }}>Analytics</h2>
+          <p className="subhead">Session {activeSession.code} · live insights from the class so far.</p>
         </div>
-        <button className="btn btn-ghost btn-sm" onClick={() => { setRefreshKey(k => k + 1); refresh() }}>↻ Refresh</button>
+        <div className="story-hero-image">
+          <StoryImage
+            file="analytics-reading-the-sky.png"
+            shape="puff"
+            rotate={-4}
+            width={140}
+            height={140}
+            fallbackLabel="analytics · reading the sky"
+          />
+        </div>
+      </div>
+      <div className="page-header" style={{ marginTop: -8 }}>
+        <div />
+        <button className="btn btn-ghost btn-sm" onClick={() => { setRefreshKey(k => k + 1); refresh() }}><Icon name="refresh" size={14} /> Refresh</button>
       </div>
 
       {loading && <LoadingBlock />}
@@ -114,7 +132,9 @@ export default function Analytics() {
             <div key={m.id} style={{ padding: 12, background: 'var(--danger-dim)', borderRadius: 8, marginBottom: 8 }}>
               <strong>{m.topic}</strong> · {m.category}
               <p style={{ fontSize: 12, marginTop: 4 }}>{m.explanation}</p>
-              <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>💡 {m.suggestion}</p>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Icon name="lightbulb" size={12} /> {m.suggestion}
+              </p>
             </div>
           ))}
         </div>

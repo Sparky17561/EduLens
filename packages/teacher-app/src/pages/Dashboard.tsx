@@ -6,6 +6,8 @@ import { useWebSocket } from '../hooks/useWebSocket'
 import { useReport } from '../hooks/useReport'
 import { useSync } from '../hooks/useSync'
 import { StatCard, EmptyState } from '../components/ui'
+import { Icon } from '../components/Icon'
+import { StoryImage } from '../components/StoryImage'
 import QRCode from 'qrcode.react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 
@@ -91,14 +93,15 @@ export default function Dashboard() {
       <MotionHeader
         title="Dashboard"
         subtitle={activeSession ? `Session ${activeSession.code} · ${activeSession.topic}` : 'Start a session to begin'}
+        kicker={activeSession ? 'CLASSROOM · LIVE' : 'CLASSROOM'}
         actions={
           !activeSession ? (
             <button className="btn btn-success btn-lg" onClick={startSession} disabled={loading}>
-              {loading ? <span className="spinner" /> : '▶ Start Session'}
+              {loading ? <span className="spinner" /> : <><Icon name="play" size={16} /> Start Session</>}
             </button>
           ) : (
             <button className="btn btn-danger btn-lg" onClick={endSession} disabled={loading}>
-              {loading ? <span className="spinner" /> : '■ End Session'}
+              {loading ? <span className="spinner" /> : <><Icon name="stop" size={16} /> End Session</>}
             </button>
           )
         }
@@ -111,10 +114,10 @@ export default function Dashboard() {
           <div className="health-card" style={{ marginBottom: 20 }}>
             <h4 style={{ marginBottom: 12 }}>Classroom Health</h4>
             <div className="grid-4">
-              <StatCard icon="👥" label="Students Online" value={students.length} color="var(--primary)" />
-              <StatCard icon="📊" label="Class Avg" value={avgScore ? `${avgScore}%` : '—'} color="var(--info)" trend={avgScore >= 60 ? 'up' : 'down'} />
-              <StatCard icon="📚" label="Homework" value={homeworkTotal ? `${homeworkDone}/${homeworkTotal}` : '—'} sub="AI generated" color="var(--success)" />
-              <StatCard icon="☁" label="Sync" value={syncing ? '…' : pending > 0 ? `${pending} pending` : lastSynced ? 'OK' : 'Local'} color={pending > 0 ? 'var(--warning)' : 'var(--success)'} />
+              <StatCard icon="users" tone="primary" label="Students Online" value={students.length} color="var(--primary)" />
+              <StatCard icon="analytics" tone="primary" label="Class Avg" value={avgScore ? `${avgScore}%` : '—'} color="var(--info)" trend={avgScore >= 60 ? 'up' : 'down'} />
+              <StatCard icon="homework" tone="success" label="Homework" value={homeworkTotal ? `${homeworkDone}/${homeworkTotal}` : '—'} sub="AI generated" color="var(--success)" />
+              <StatCard icon="cloud" tone={pending > 0 ? 'warning' : 'success'} label="Sync" value={syncing ? '…' : pending > 0 ? `${pending} pending` : lastSynced ? 'OK' : 'Local'} color={pending > 0 ? 'var(--warning)' : 'var(--success)'} />
             </div>
             {weakTopics.length > 0 && (
               <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -125,10 +128,10 @@ export default function Dashboard() {
               </div>
             )}
             <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/quiz')}>✦ Quiz Studio</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/analytics')}>📊 Analytics</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/reteach')}>🔄 Reteach</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => { setRefreshKey(k => k + 1); refreshReport() }}>↻ Refresh</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/quiz')}><Icon name="quiz" size={14} /> Quiz Studio</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/analytics')}><Icon name="analytics" size={14} /> Analytics</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/reteach')}><Icon name="reteach" size={14} /> Reteach</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => { setRefreshKey(k => k + 1); refreshReport() }}><Icon name="refresh" size={14} /> Refresh</button>
             </div>
           </div>
 
@@ -158,12 +161,32 @@ export default function Dashboard() {
 
       {!activeSession && (
         <>
+          <div className="story-hero">
+            <div className="story-hero-text">
+              <span className="kicker">QUIET CLASSROOM</span>
+              <div className="headline">Start the day's lesson</div>
+              <p className="subhead">Set a topic and start a session to share the QR code with your class.</p>
+            </div>
+            <div className="story-hero-image">
+              <StoryImage
+                file="dashboard-quiet-classroom.png"
+                shape="tilted"
+                rotate={4}
+                width={180}
+                height={180}
+                fallbackLabel="dashboard · quiet classroom"
+              />
+            </div>
+          </div>
+
           <div className="card" style={{ maxWidth: 480, marginBottom: 24 }}>
             <h4 style={{ marginBottom: 12 }}>Session Topic</h4>
             <input className="input" value={topic} onChange={e => setTopic(e.target.value)} placeholder="e.g. Fractions, Photosynthesis…" />
             {knowledgeBases.length > 0 && (
               <div style={{ marginTop: 14 }}>
-                <label className="form-label">📚 Knowledge Base (optional)</label>
+                <label className="form-label" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <Icon name="book" size={14} /> Knowledge Base (optional)
+                </label>
                 <select className="input" value={selectedKbId} onChange={e => setSelectedKbId(e.target.value)} style={{ marginTop: 6 }}>
                   <option value="">— Built-in NCERT —</option>
                   {knowledgeBases.map(kb => (
@@ -174,7 +197,7 @@ export default function Dashboard() {
             )}
           </div>
           {pastSessions.length === 0 ? (
-            <EmptyState icon="📡" title="No Active Session" description="Set a topic and start a session to get your QR code and class dashboard." />
+            <EmptyState icon="broadcast" tone="primary" title="No Active Session" description="Set a topic and start a session to get your QR code and class dashboard." />
           ) : (
             <div>
               <h4 style={{ marginBottom: 12, color: 'var(--text-secondary)' }}>Past Sessions</h4>
@@ -191,8 +214,12 @@ export default function Dashboard() {
                       {s.ended_at && ` · ended ${new Date(s.ended_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`}
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>👥 {s.student_count || 0} students</span>
-                      <span style={{ fontSize: 12, color: 'var(--primary)', marginLeft: 'auto' }}>View Report →</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <Icon name="users" size={12} /> {s.student_count || 0} students
+                      </span>
+                      <span style={{ fontSize: 12, color: 'var(--primary)', marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        View Report <Icon name="arrow-right" size={12} />
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -205,10 +232,14 @@ export default function Dashboard() {
   )
 }
 
-function MotionHeader({ title, subtitle, actions }: { title: string; subtitle: string; actions?: React.ReactNode }) {
+function MotionHeader({ title, subtitle, kicker, actions }: { title: string; subtitle: string; kicker?: string; actions?: React.ReactNode }) {
   return (
     <div className="page-header">
-      <div className="page-header-left"><h2>{title}</h2><p>{subtitle}</p></div>
+      <div className="page-header-left">
+        {kicker && <span className="kicker">{kicker}</span>}
+        <h2>{title}</h2>
+        <p>{subtitle}</p>
+      </div>
       {actions}
     </div>
   )
@@ -235,8 +266,8 @@ function SessionPanel({ activeSession, navigate, copyUrl, students }: any) {
           <div style={{ fontSize: 28, fontWeight: 800, fontFamily: 'JetBrains Mono', color: 'var(--primary)', letterSpacing: 4 }}>{activeSession.code}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/chat')}>💬 Chat</button>
-          <button className="btn btn-ghost btn-sm" onClick={copyUrl}>📋 Copy URL</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/chat')}><Icon name="chat" size={14} /> Chat</button>
+          <button className="btn btn-ghost btn-sm" onClick={copyUrl}><Icon name="copy" size={14} /> Copy URL</button>
         </div>
       </div>
       <div className="card">

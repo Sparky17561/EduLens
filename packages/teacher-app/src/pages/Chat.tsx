@@ -4,6 +4,8 @@ import { chatApi, aiApi } from '../api/client'
 import { isSlashCommand } from '../utils/chatCommands'
 import { CommandChips } from '../components/ui'
 import { CitationBlock } from '../components/CitationBlock'
+import { Icon } from '../components/Icon'
+import { StoryImage } from '../components/StoryImage'
 import { useWebSocket } from '../hooks/useWebSocket'
 
 export default function Chat() {
@@ -60,11 +62,22 @@ export default function Chat() {
     <div className="page-body" style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: 0, overflow: 'hidden' }}>
       {/* Header */}
       <div style={styles.header}>
-        <div>
-          <h3 style={{ margin: 0 }}>Class Chat</h3>
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
-            {noSession ? 'Start a session first' : `Session ${activeSession.code} · ${messages.length} messages`}
-          </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1 }}>
+          <StoryImage
+            file="chat-listening-tree.png"
+            shape="soft"
+            rotate={-3}
+            width={56}
+            height={56}
+            fallbackLabel="chat"
+          />
+          <div>
+            <span className="kicker">CLASSROOM CONVERSATION</span>
+            <h3 style={{ margin: 0 }}>Class Chat</h3>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
+              {noSession ? 'Start a session first' : `Session ${activeSession.code} · ${messages.length} messages`}
+            </p>
+          </div>
         </div>
         <CommandChips />
       </div>
@@ -72,8 +85,10 @@ export default function Chat() {
       {/* Messages */}
       <div style={styles.messageList}>
         {messages.length === 0 && (
-          <div className="empty-state">
-            <div className="empty-icon">💬</div>
+          <div className="empty-state empty-state-modern">
+            <span className="empty-icon-bubble icon-bubble-primary">
+              <Icon name="chat" size={32} />
+            </span>
             <h3>No messages yet</h3>
             <p>Use /ask to query the AI, or /generate to create lesson content</p>
           </div>
@@ -102,7 +117,7 @@ export default function Chat() {
           rows={2}
         />
         <button className="btn btn-primary" onClick={send} disabled={noSession || !input.trim() || aiLoading} style={{ alignSelf: 'flex-end' }}>
-          Send ↑
+          Send <Icon name="send" size={14} />
         </button>
       </div>
     </div>
@@ -132,7 +147,9 @@ function MessageBubble({ msg, teacherId }: { msg: any; teacherId?: string }) {
           maxWidth: '80%',
           boxShadow: 'var(--shadow)'
         }}>
-          <h4 style={{ margin: '0 0 8px 0', color: 'var(--primary)', letterSpacing: 1 }}>📝 ACTIVE QUIZ LAUNCHED</h4>
+          <h4 style={{ margin: '0 0 8px 0', color: 'var(--primary)', letterSpacing: 1, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Icon name="quiz" size={16} /> ACTIVE QUIZ LAUNCHED
+          </h4>
           <p style={{ margin: '0 0 4px 0', fontSize: 13, fontWeight: 600 }}>Interactive Student Test is Live!</p>
           <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>
             Total Questions: <strong>{quizData?.totalQuestions || 5}</strong>
@@ -151,8 +168,8 @@ function MessageBubble({ msg, teacherId }: { msg: any; teacherId?: string }) {
   return (
     <div style={{ ...styles.msgRow, justifyContent: isTeacher ? 'flex-end' : 'flex-start' }}>
       {!isTeacher && (
-        <div style={{ ...styles.avatar, background: isAI ? 'var(--primary)' : 'var(--bg-elevated)' }}>
-          {isAI ? '🤖' : msg.senderName[0]?.toUpperCase()}
+        <div style={{ ...styles.avatar, background: isAI ? 'var(--primary)' : 'var(--bg-elevated)', color: isAI ? '#fff' : 'var(--text-primary)' }}>
+          {isAI ? <Icon name="ai-bot" size={16} /> : msg.senderName[0]?.toUpperCase()}
         </div>
       )}
       <div style={{ maxWidth: '70%' }}>

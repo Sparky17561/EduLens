@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react'
 import jsQR from 'jsqr'
+import { Icon } from './Icon'
 
 interface EduLensReport {
   type: string
@@ -83,8 +84,10 @@ export default function StudentQRScanner({ onScan, onClose }: Props) {
     <div style={overlayStyle} onClick={onClose}>
       <div style={modalStyle} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h3 style={{ margin: 0 }}>📱 Scan Student Report QR</h3>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <h3 style={{ margin: 0, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <Icon name="mobile" size={20} /> Scan Student Report QR
+          </h3>
+          <button className="modal-close" onClick={onClose}><Icon name="x" size={16} /></button>
         </div>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
           Point the camera at a student's EduLens Report QR code.

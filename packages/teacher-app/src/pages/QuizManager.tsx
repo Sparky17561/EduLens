@@ -3,6 +3,8 @@ import { useAppStore } from '../store/appStore'
 import { quizApi, aiApi } from '../api/client'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useToast } from '../components/Toast'
+import { Icon } from '../components/Icon'
+import { StoryImage } from '../components/StoryImage'
 
 const BLOOM_LEVELS = ['Remember', 'Understand', 'Apply', 'Analyze', 'Evaluate', 'Create']
 const QUESTION_TYPES = [
@@ -97,8 +99,10 @@ export default function QuizManager() {
   if (!activeSession) {
     return (
       <motionPage>
-        <div className="empty-state">
-          <div className="empty-icon">✦</div>
+        <div className="empty-state empty-state-modern">
+          <span className="empty-icon-bubble icon-bubble-primary">
+            <Icon name="quiz" size={32} />
+          </span>
           <h3>Start a session first</h3>
           <p>Go to Dashboard and start a live session before launching a quiz.</p>
         </div>
@@ -108,17 +112,32 @@ export default function QuizManager() {
 
   return (
     <motionPage>
-      <div className="page-header">
-        <div className="page-header-left">
-          <h2>Quiz Studio</h2>
-          <p>{launched ? `${submittedStudents.length}/${students.length} submitted` : 'AI-first quiz builder — generate, edit, launch'}</p>
+      <div className="story-hero story-hero-compact">
+        <div className="story-hero-text">
+          <span className="kicker">QUIZ STUDIO</span>
+          <h2 style={{ margin: '4px 0' }}>{launched ? `${submittedStudents.length}/${students.length} submitted` : 'Seeds of curiosity'}</h2>
+          <p className="subhead">{launched ? 'Watching submissions land in real time.' : 'AI-first quiz builder — generate, edit, launch.'}</p>
         </div>
+        <div className="story-hero-image">
+          <StoryImage
+            file="quiz-seeds-of-curiosity.png"
+            shape="lopsided"
+            rotate={6}
+            width={140}
+            height={140}
+            fallbackLabel="quiz · seeds"
+          />
+        </div>
+      </div>
+
+      <div className="page-header" style={{ marginTop: -8 }}>
+        <div />
         {!launched && aiQuestions && (
           <button className="btn btn-primary" onClick={launchQuiz} disabled={loading}>
-            {loading ? <span className="spinner" /> : '▶ Launch to Students'}
+            {loading ? <span className="spinner" /> : <><Icon name="play" size={14} /> Launch to Students</>}
           </button>
         )}
-        {launched && <span className="badge badge-success">🟢 Quiz Live</span>}
+        {launched && <span className="badge badge-success"><Icon name="check" size={12} /> Quiz Live</span>}
       </div>
 
       {error && <p style={{ color: 'var(--danger)', marginBottom: 12 }}>{error}</p>}
@@ -173,7 +192,7 @@ export default function QuizManager() {
           </div>
 
           <button className="btn btn-primary" style={{ width: '100%', marginTop: 20, padding: 14 }} onClick={handleAiGenerate} disabled={aiGenerating || !aiTopic.trim()}>
-            {aiGenerating ? <><span className="spinner" /> Generating (30–90s)…</> : '✨ Generate Quiz'}
+            {aiGenerating ? <><span className="spinner" /> Generating (30–90s)…</> : <><Icon name="sparkle" size={16} /> Generate Quiz</>}
           </button>
         </div>
       )}
@@ -182,8 +201,8 @@ export default function QuizManager() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <motionBar>
             <span className="badge badge-success">{aiQuestions.length} questions ready</span>
-            <button className="btn btn-ghost btn-sm" onClick={() => setAiQuestions(null)}>↺ Start Over</button>
-            <button className="btn btn-ghost btn-sm" onClick={handleAiGenerate}>↻ Regenerate All</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setAiQuestions(null)}><Icon name="x" size={12} /> Start Over</button>
+            <button className="btn btn-ghost btn-sm" onClick={handleAiGenerate}><Icon name="refresh" size={12} /> Regenerate All</button>
           </motionBar>
           {aiQuestions.map((q, qi) => (
             <QuestionEditorCard
@@ -224,10 +243,12 @@ function QuestionEditorCard({ q, qi, isOpen, onToggle, onRegenerate, regeneratin
           <p style={{ marginTop: 8, fontSize: 14 }}>{q.question}</p>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); onRegenerate() }} disabled={regenerating}>
-            {regenerating ? '…' : '↻'}
+          <button type="button" className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); onRegenerate() }} disabled={regenerating} title="Regenerate">
+            {regenerating ? '…' : <Icon name="refresh" size={14} />}
           </button>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); onDelete() }}>✕</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); onDelete() }} title="Delete">
+            <Icon name="x" size={14} />
+          </button>
         </div>
       </div>
       {isOpen && (

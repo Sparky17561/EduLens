@@ -4,6 +4,8 @@ import { reportApi, sessionApi, syncApi } from '../api/client'
 import { useToast } from '../components/Toast'
 import QRCode from 'qrcode.react'
 import StudentQRScanner from '../components/StudentQRScanner'
+import { Icon } from '../components/Icon'
+import { StoryImage } from '../components/StoryImage'
 
 export default function Reports() {
   const { teacher, activeSession } = useAppStore()
@@ -101,17 +103,31 @@ export default function Reports() {
 
   return (
     <div className="page-body animate-in">
-      <div className="page-header">
-        <div className="page-header-left">
-          <h2>Reports</h2>
-          <p>Session history, export & restore</p>
+      <div className="story-hero story-hero-compact">
+        <div className="story-hero-text">
+          <span className="kicker">PRESSED IN PAGES</span>
+          <h2 style={{ margin: '4px 0' }}>Reports</h2>
+          <p className="subhead">Session history, export & restore — each one a remembered day.</p>
         </div>
+        <div className="story-hero-image">
+          <StoryImage
+            file="reports-pressed-pages.png"
+            shape="lopsided"
+            rotate={-3}
+            width={140}
+            height={140}
+            fallbackLabel="reports · pressed pages"
+          />
+        </div>
+      </div>
+      <div className="page-header" style={{ marginTop: -8 }}>
+        <div />
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-primary btn-sm" onClick={() => setShowQRScanner(true)}>
-            📷 Scan Student QR
+            <Icon name="camera" size={14} /> Scan Student QR
           </button>
           <label className="btn btn-ghost btn-sm" style={{ cursor: 'pointer' }}>
-            📥 Import bundle JSON
+            <Icon name="download" size={14} /> Import bundle JSON
             <input type="file" accept=".json" hidden onChange={e => e.target.files?.[0] && importBundleFile(e.target.files[0])} />
           </label>
         </div>
@@ -139,8 +155,8 @@ export default function Reports() {
         {/* Report detail */}
         <div style={{ overflowY: 'auto' }}>
           {!report && !loading && (
-            <div className="empty-state">
-              <div className="empty-icon">📋</div>
+            <div className="empty-state empty-state-modern">
+              <span className="empty-icon-bubble icon-bubble-primary"><Icon name="reports" size={32} /></span>
               <h3>Select a session</h3>
               <p>Click a session to view its report</p>
             </div>
@@ -158,13 +174,13 @@ export default function Reports() {
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn btn-primary" onClick={() => exportReport(report.session.id)} disabled={loading}>
-                  📤 Export JSON/QR
+                  <Icon name="upload" size={14} /> Export JSON/QR
                 </button>
                 <button className="btn btn-ghost" onClick={() => downloadPdf(report.session.id)} disabled={loading}>
-                  🖨 PDF
+                  <Icon name="print" size={14} /> PDF
                 </button>
                 <button className="btn btn-ghost" onClick={() => exportBundle(report.session.id)} disabled={loading}>
-                  📦 Bundle
+                  <Icon name="package" size={14} /> Bundle
                 </button>
                 </div>
               </div>
@@ -235,7 +251,7 @@ export default function Reports() {
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Export Report</h3>
-              <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => setShowModal(false)}><Icon name="x" size={16} /></button>
             </div>
             <p style={{ marginBottom: 20, fontSize: 13 }}>
               Scan QR with the student app to import, or download the JSON file.
@@ -252,7 +268,7 @@ export default function Reports() {
             )}
 
             <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={downloadJson}>
-              ⬇ Download JSON
+              <Icon name="download" size={14} /> Download JSON
             </button>
           </div>
         </div>
@@ -275,8 +291,10 @@ export default function Reports() {
         <div className="modal-overlay" onClick={() => setScannedStudent(null)}>
           <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>📊 {scannedStudent.student.name}'s Report</h3>
-              <button className="modal-close" onClick={() => setScannedStudent(null)}>✕</button>
+              <h3 style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <Icon name="analytics" size={20} /> {scannedStudent.student.name}'s Report
+              </h3>
+              <button className="modal-close" onClick={() => setScannedStudent(null)}><Icon name="x" size={16} /></button>
             </div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
               {scannedStudent.session.topic} · {scannedStudent.session.code} · {scannedStudent.date}
@@ -301,24 +319,28 @@ export default function Reports() {
             </div>
             {scannedStudent.weakTopics?.length > 0 && (
               <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-danger)', marginBottom: 6 }}>⚠️ Needs Review</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)', marginBottom: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <Icon name="warning" size={12} /> Needs Review
+                </div>
                 <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{scannedStudent.weakTopics.join(', ')}</div>
               </div>
             )}
             {scannedStudent.strongTopics?.length > 0 && (
               <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--success)', marginBottom: 6 }}>✅ Mastered</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--success)', marginBottom: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <Icon name="check" size={12} /> Mastered
+                </div>
                 <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{scannedStudent.strongTopics.join(', ')}</div>
               </div>
             )}
             {scannedStudent.homework?.conceptRecap && (
-              <div style={{ padding: 12, background: 'var(--bg-elevated)', borderRadius: 8, fontSize: 12, color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-                📚 {scannedStudent.homework.conceptRecap}
+              <div style={{ padding: 12, background: 'var(--bg-elevated)', borderRadius: 8, fontSize: 12, color: 'var(--text-secondary)', fontStyle: 'italic', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <Icon name="book" size={14} /> {scannedStudent.homework.conceptRecap}
               </div>
             )}
             <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
                     onClick={() => setShowQRScanner(true)}>
-              📷 Scan Another Student
+              <Icon name="camera" size={14} /> Scan Another Student
             </button>
           </div>
         </div>

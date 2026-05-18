@@ -3,6 +3,8 @@ import { useAppStore } from '../store/appStore'
 import { useReport } from '../hooks/useReport'
 import { aiApi } from '../api/client'
 import { EmptyState, LoadingBlock } from '../components/ui'
+import { Icon } from '../components/Icon'
+import { StoryImage } from '../components/StoryImage'
 
 export default function Reteach() {
   const { activeSession } = useAppStore()
@@ -37,20 +39,48 @@ export default function Reteach() {
   if (!activeSession) {
     return (
       <div className="page-body animate-in">
-        <EmptyState icon="🔄" title="No Active Session" description="Start a session and run a quiz to generate reteach plans from weak topics." />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '40px 20px' }}>
+          <StoryImage
+            file="reteach-pond-return.png"
+            shape="puff"
+            rotate={-5}
+            width={300}
+            height={300}
+            fallbackLabel="reteach · pond return"
+          />
+          <span className="kicker">RETURN TO THE POND</span>
+          <h3 style={{ textAlign: 'center', margin: 0 }}>No Active Session</h3>
+          <p style={{ textAlign: 'center', maxWidth: 360, color: 'var(--text-muted)' }}>
+            Start a session and run a quiz to generate reteach plans from weak topics.
+          </p>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="page-body animate-in">
-      <div className="page-header">
-        <div className="page-header-left">
-          <h2>Reteach Loop</h2>
-          <p>Auto-generated lesson plans from class weak topics</p>
+      <div className="story-hero story-hero-compact">
+        <div className="story-hero-text">
+          <span className="kicker">RETEACH LOOP</span>
+          <h2 style={{ margin: '4px 0' }}>Returning to the pond</h2>
+          <p className="subhead">Auto-generated lesson plans from class weak topics.</p>
         </div>
+        <div className="story-hero-image">
+          <StoryImage
+            file="reteach-pond-return.png"
+            shape="soft"
+            rotate={3}
+            width={140}
+            height={140}
+            fallbackLabel="reteach · pond return"
+          />
+        </div>
+      </div>
+      <div className="page-header" style={{ marginTop: -8 }}>
+        <div />
         <button className="btn btn-primary" onClick={generate} disabled={generating || loading}>
-          {generating ? <span className="spinner" /> : '✨ Generate Plans'}
+          {generating ? <span className="spinner" /> : <><Icon name="sparkle" size={16} /> Generate Plans</>}
         </button>
       </div>
 
@@ -58,7 +88,8 @@ export default function Reteach() {
 
       {!loading && plans.length === 0 && (
         <EmptyState
-          icon="📖"
+          icon="book-open"
+          tone="primary"
           title="No reteach plans yet"
           description="Click Generate Plans after students complete a quiz."
           action={<button className="btn btn-ghost" onClick={generate}>Generate from weak topics</button>}
