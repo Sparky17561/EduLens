@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useSessionStore } from '../store/sessionStore'
 
 export function useStudentWebSocket() {
-  const { session, student, addMessage, setActiveQuiz, setSessionEnded, setQuizResult, setFlashcards, setPendingQuiz } = useSessionStore()
+  const { session, student, addMessage, setActiveQuiz, setSessionEnded, setQuizResult, setFlashcards, setPendingQuiz, setHomeworkGenerating, completedQuizIds } = useSessionStore()
   const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
@@ -19,7 +19,6 @@ export function useStudentWebSocket() {
     function connect() {
       if (!active) return
 
-      // Close existing if open
       if (wsRef.current) {
         try { wsRef.current.close() } catch {}
       }
@@ -32,7 +31,6 @@ export function useStudentWebSocket() {
         if (!active || ws !== wsRef.current) return
         console.log('[WS] Connected to teacher server')
 
-        // Register student identity
         ws.send(JSON.stringify({
           event: 'student_joined',
           sessionId: session.id,
@@ -55,38 +53,48 @@ export function useStudentWebSocket() {
                 role: msg.payload.role,
                 content: msg.payload.content,
                 messageType: msg.payload.messageType || 'chat',
-                createdAt: msg.payload.createdAt || new Date().toISOString()
+                createdAt: msg.payload.createdAt || new Date().toISOString(),
+                citations: msg.payload.citations,
+                confidence: msg.payload.confidence,
+                confidenceNote: msg.payload.confidenceNote
               })
               break
 
-            case 'quiz_started':
-              // Skip if student already submitted a quiz this session
-              if (useSessionStore.getState().quizResult) {
-                console.log('[WS] quiz_started ignored — student already completed a quiz this session.')
+            case 'quiz_started': {
+              const quizId = msg.payload.quizId
+              const store = useSessionStore.getState()
+              // Skip if student already completed this quiz (handles rejoin)
+              if (store.completedQuizIds.includes(quizId)) {
+                console.log('[WS] quiz_started ignored — already completed:', quizId)
                 break
               }
-              // Store quiz but DON'T auto-navigate — show popup instead
-              setActiveQuiz({ quizId: msg.payload.quizId, questions: msg.payload.questions })
+              if (store.quizResult) {
+                console.log('[WS] quiz_started ignored — already has result this session')
+                break
+              }
+              setActiveQuiz({ quizId, questions: msg.payload.questions })
               setPendingQuiz(true)
               break
+            }
 
             case 'session_ended':
               setSessionEnded(true)
               break
 
-            case 'homework_ready':
-              // Access latest quizResult via getState to avoid stale closure references
+            case 'homework_ready': {
               const latestStore = useSessionStore.getState()
               if (msg.payload.studentId === student.id && latestStore.quizResult) {
                 setQuizResult({
                   ...latestStore.quizResult,
                   homework: msg.payload.homework
                 })
+                setHomeworkGenerating(false)
               }
               break
+            }
 
             case 'flashcards_ready':
-              if (msg.payload.flashcards) {
+              if (msg.payload.flashcards?.length) {
                 setFlashcards(msg.payload.flashcards as any)
               }
               break

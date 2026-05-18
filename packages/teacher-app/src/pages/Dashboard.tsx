@@ -3,7 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store/appStore'
 import { sessionApi, knowledgeApi } from '../api/client'
 import { useWebSocket } from '../hooks/useWebSocket'
+import { useReport } from '../hooks/useReport'
+import { useSync } from '../hooks/useSync'
+import { StatCard, EmptyState } from '../components/ui'
 import QRCode from 'qrcode.react'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 
 export default function Dashboard() {
   const { teacher, activeSession, setActiveSession, students, messages } = useAppStore()
@@ -11,18 +15,26 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [knowledgeBases, setKnowledgeBases] = useState<any[]>([])
-  const [selectedKbId, setSelectedKbId] = useState<string>('')
+  const [selectedKbId, setSelectedKbId] = useState('')
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [pastSessions, setPastSessions] = useState<any[]>([])
   const navigate = useNavigate()
+  const { report, refresh: refreshReport } = useReport(activeSession?.id || null, refreshKey)
+  const { pending, lastSynced, syncing } = useSync()
 
   useWebSocket(activeSession?.id || null)
 
-  // Fetch available knowledge bases
+  useEffect(() => {
+    const handler = () => { setRefreshKey(k => k + 1); refreshReport() }
+    window.addEventListener('edulens:analytics_updated', handler)
+    return () => window.removeEventListener('edulens:analytics_updated', handler)
+  }, [refreshReport])
+
   useEffect(() => {
     if (!teacher) return
-    knowledgeApi.list(teacher.id)
-      .then(d => setKnowledgeBases(d.knowledgeBases || []))
-      .catch(() => {})
-  }, [teacher])
+    knowledgeApi.list(teacher.id).then(d => setKnowledgeBases(d.knowledgeBases || [])).catch(() => {})
+    sessionApi.list(teacher.id).then(d => setPastSessions((d.sessions || []).filter((s: any) => s.status === 'ended'))).catch(() => {})
+  }, [teacher, activeSession?.id])
 
   const startSession = async () => {
     if (!teacher) return
@@ -59,36 +71,28 @@ export default function Dashboard() {
     setLoading(false)
   }
 
-  const copyUrl = () => {
-    if (activeSession) {
-      navigator.clipboard.writeText(activeSession.joinUrl)
-    }
-  }
+  const insights = report?.insights
+  const analytics = report?.analytics
+  const weakTopics: string[] = analytics?.weakTopics || insights?.weakAreas || []
+  const chartData = analytics?.topicBreakdown
+    ? Object.entries(analytics.topicBreakdown).map(([topic, avg]) => ({ topic, avg: Math.round(avg as number) }))
+    : []
 
-  const sessionDuration = activeSession
-    ? Math.floor((Date.now() - new Date(activeSession.startedAt).getTime()) / 60000)
-    : 0
+  const submittedCount = students.filter(s => s.percentage !== undefined).length
+  const avgScore = submittedCount > 0
+    ? Math.round(students.filter(s => s.percentage !== undefined).reduce((a, s) => a + (s.percentage || 0), 0) / submittedCount)
+    : Math.round(analytics?.avg_score || 0)
 
-  const [ticker, setTicker] = useState(0)
-  useEffect(() => {
-    const t = setInterval(() => setTicker((x) => x + 1), 30000)
-    return () => clearInterval(t)
-  }, [])
+  const homeworkDone = report?.studentReports?.filter((r: any) => r.homework?.followUpQuestions?.length).length || 0
+  const homeworkTotal = report?.studentReports?.length || 0
 
   return (
     <div className="page-body animate-in">
-      {/* Header */}
-      <div className="page-header">
-        <div className="page-header-left">
-          <h2>Dashboard</h2>
-          <p>
-            {activeSession
-              ? `Session active · ${topic} · ${sessionDuration}m elapsed`
-              : 'Start a session to begin teaching'}
-          </p>
-        </div>
-        <div className="flex gap-2 items-center">
-          {!activeSession ? (
+      <MotionHeader
+        title="Dashboard"
+        subtitle={activeSession ? `Session ${activeSession.code} · ${activeSession.topic}` : 'Start a session to begin'}
+        actions={
+          !activeSession ? (
             <button className="btn btn-success btn-lg" onClick={startSession} disabled={loading}>
               {loading ? <span className="spinner" /> : '▶ Start Session'}
             </button>
@@ -96,223 +100,172 @@ export default function Dashboard() {
             <button className="btn btn-danger btn-lg" onClick={endSession} disabled={loading}>
               {loading ? <span className="spinner" /> : '■ End Session'}
             </button>
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
 
-      {error && <div style={{ color: 'var(--danger)', marginBottom: 16, fontSize: 13 }}>{error}</div>}
+      {error && <p style={{ color: 'var(--danger)', marginBottom: 16 }}>{error}</p>}
 
-      {/* Pre-session setup */}
-      {!activeSession && (
-        <div className="card" style={{ maxWidth: 480, marginBottom: 24 }}>
-          <h4 style={{ marginBottom: 12 }}>Session Topic</h4>
-          <div className="flex gap-2 items-center">
-            <input
-              className="input"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder="e.g. Fractions, Newton's Laws..."
-            />
-          </div>
-          <p style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>
-            This helps the AI generate relevant content and homework
-          </p>
-
-          {/* Knowledge Base Selector */}
-          {knowledgeBases.length > 0 && (
-            <div style={{ marginTop: 14 }}>
-              <label className="form-label">📚 Lesson Material (optional)</label>
-              <select
-                className="input"
-                value={selectedKbId}
-                onChange={e => setSelectedKbId(e.target.value)}
-                style={{ marginTop: 6 }}
-              >
-                <option value="">— None (use built-in NCERT knowledge) —</option>
-                {knowledgeBases.map(kb => (
-                  <option key={kb.id} value={kb.id}>{kb.name}</option>
-                ))}
-              </select>
-              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                Select a PDF to supplement AI answers with your custom material.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Active session grid */}
       {activeSession && (
         <>
-          {/* Stats strip */}
-          <div className="grid-4" style={{ marginBottom: 20 }}>
-            <StatCard icon="👥" label="Students Online" value={students.length} color="var(--primary)" />
-            <StatCard icon="💬" label="Chat Messages" value={messages.filter(m => m.messageType === 'chat' || m.messageType === 'ask').length} color="var(--info)" />
-            <StatCard icon="✏️" label="Quiz Submitted" value={students.filter(s => s.score !== undefined).length} color="var(--success)" />
-            <StatCard
-              icon="📊"
-              label="Avg Score"
-              value={
-                students.filter(s => s.percentage !== undefined).length > 0
-                  ? `${Math.round(students.filter(s => s.percentage !== undefined).reduce((a, s) => a + (s.percentage || 0), 0) / students.filter(s => s.percentage !== undefined).length)}%`
-                  : '—'
-              }
-              color="var(--warning)"
-            />
-          </div>
-
-          {/* Main two-column layout */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20 }}>
-            {/* Left: QR + join info */}
-            <div className="card glow" style={{ textAlign: 'center' }}>
-              <div style={styles.qrHeader}>
-                <div className="live-dot" />
-                <h3>Session Active</h3>
-                <span className="badge badge-success">LIVE</span>
-              </div>
-
-              <div style={styles.qrWrap}>
-                <QRCode
-                  value={activeSession.joinUrl}
-                  size={220}
-                  bgColor="transparent"
-                  fgColor="#e2e8f0"
-                  level="M"
-                />
-              </div>
-
-              {/* Session code */}
-              <div style={styles.codeBlock}>
-                <div style={styles.codeLabel}>SESSION CODE</div>
-                <div style={styles.codeValue}>{activeSession.code}</div>
-              </div>
-
-              {/* Join URL */}
-              <div style={styles.urlRow}>
-                <code style={styles.urlText}>{activeSession.joinUrl}</code>
-                <button className="btn btn-ghost btn-sm" onClick={copyUrl} title="Copy URL">📋</button>
-              </div>
-
-              <p style={styles.helpText}>
-                Students scan the QR, type the code, or paste the URL to join
-              </p>
-
-              {/* Quick actions */}
-              <div style={styles.actionRow}>
-                <button className="btn btn-ghost btn-sm" onClick={() => navigate('/chat')}>💬 Chat</button>
-                <button className="btn btn-ghost btn-sm" onClick={() => navigate('/quiz')}>✏️ Quiz</button>
-                <button className="btn btn-ghost btn-sm" onClick={() => navigate('/analytics')}>📊 Analytics</button>
-              </div>
-              
-              <div style={{ ...styles.actionRow, marginTop: 12 }}>
-                <button className="btn btn-primary btn-sm" onClick={() => navigate('/trivia-generator')} style={{ width: '100%' }}>
-                  💡 Generate AI Interactive Trivia
-                </button>
-              </div>
+          <div className="health-card" style={{ marginBottom: 20 }}>
+            <h4 style={{ marginBottom: 12 }}>Classroom Health</h4>
+            <div className="grid-4">
+              <StatCard icon="👥" label="Students Online" value={students.length} color="var(--primary)" />
+              <StatCard icon="📊" label="Class Avg" value={avgScore ? `${avgScore}%` : '—'} color="var(--info)" trend={avgScore >= 60 ? 'up' : 'down'} />
+              <StatCard icon="📚" label="Homework" value={homeworkTotal ? `${homeworkDone}/${homeworkTotal}` : '—'} sub="AI generated" color="var(--success)" />
+              <StatCard icon="☁" label="Sync" value={syncing ? '…' : pending > 0 ? `${pending} pending` : lastSynced ? 'OK' : 'Local'} color={pending > 0 ? 'var(--warning)' : 'var(--success)'} />
             </div>
-
-            {/* Right: Student Roster */}
-            <div className="card" style={{ overflow: 'hidden' }}>
-              <div style={styles.rosterHeader}>
-                <h4>Students</h4>
-                <span style={styles.rosterCount}>{students.length} online</span>
+            {weakTopics.length > 0 && (
+              <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Weak topics:</span>
+                {weakTopics.slice(0, 5).map(t => (
+                  <span key={t} className="badge badge-danger">{t}</span>
+                ))}
               </div>
-              <div style={styles.rosterList}>
-                {students.length === 0 ? (
-                  <div className="empty-state" style={{ padding: '40px 20px' }}>
-                    <div className="empty-icon">🎓</div>
-                    <p>Waiting for students to join…</p>
-                  </div>
-                ) : (
-                  students.map((student) => (
-                    <div key={student.id} style={styles.rosterItem}>
-                      <div style={styles.studentAvatar}>{student.name[0]?.toUpperCase()}</div>
-                      <div style={styles.studentInfo}>
-                        <div style={styles.studentName}>{student.name}</div>
-                        <div style={styles.studentMeta}>
-                          {student.percentage !== undefined
-                            ? `Score: ${student.score}/${student.score !== undefined ? (student as any).total || '?' : '?'} (${Math.round(student.percentage)}%)`
-                            : `Joined ${new Date(student.joinedAt).toLocaleTimeString()}`}
-                        </div>
-                      </div>
-                      {student.percentage !== undefined && (
-                        <span className={`badge ${student.percentage >= 60 ? 'badge-success' : 'badge-danger'}`}>
-                          {Math.round(student.percentage)}%
-                        </span>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/quiz')}>✦ Quiz Studio</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/analytics')}>📊 Analytics</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/reteach')}>🔄 Reteach</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => { setRefreshKey(k => k + 1); refreshReport() }}>↻ Refresh</button>
             </div>
           </div>
+
+          {chartData.length > 0 && (
+            <div className="card" style={{ marginBottom: 20, height: 220 }}>
+              <h4 style={{ marginBottom: 8 }}>Topic Performance</h4>
+              <ResponsiveContainer width="100%" height={170}>
+                <BarChart data={chartData}>
+                  <XAxis dataKey="topic" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
+                  <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }} />
+                  <Bar dataKey="avg" radius={[4, 4, 0, 0]}>
+                    {chartData.map((e, i) => (
+                      <Cell key={i} fill={e.avg >= 60 ? 'var(--success)' : 'var(--danger)'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          <MotionGrid>
+            <SessionPanel activeSession={activeSession} navigate={navigate} copyUrl={() => navigator.clipboard.writeText(activeSession.joinUrl)} students={students} />
+          </MotionGrid>
         </>
       )}
 
-      {/* No session placeholder */}
       {!activeSession && (
-        <div className="empty-state" style={{ marginTop: 40 }}>
-          <div className="empty-icon">📡</div>
-          <h3>No Active Session</h3>
-          <p>Set a topic above and click "Start Session" to generate a QR code</p>
-        </div>
+        <>
+          <div className="card" style={{ maxWidth: 480, marginBottom: 24 }}>
+            <h4 style={{ marginBottom: 12 }}>Session Topic</h4>
+            <input className="input" value={topic} onChange={e => setTopic(e.target.value)} placeholder="e.g. Fractions, Photosynthesis…" />
+            {knowledgeBases.length > 0 && (
+              <div style={{ marginTop: 14 }}>
+                <label className="form-label">📚 Knowledge Base (optional)</label>
+                <select className="input" value={selectedKbId} onChange={e => setSelectedKbId(e.target.value)} style={{ marginTop: 6 }}>
+                  <option value="">— Built-in NCERT —</option>
+                  {knowledgeBases.map(kb => (
+                    <option key={kb.id} value={kb.id}>{kb.name} ({kb.chunk_count} chunks)</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+          {pastSessions.length === 0 ? (
+            <EmptyState icon="📡" title="No Active Session" description="Set a topic and start a session to get your QR code and class dashboard." />
+          ) : (
+            <div>
+              <h4 style={{ marginBottom: 12, color: 'var(--text-secondary)' }}>Past Sessions</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
+                {pastSessions.map((s: any) => (
+                  <div key={s.id} className="card" style={{ padding: '14px 16px', cursor: 'pointer' }}
+                       onClick={() => navigate('/reports')}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{s.topic}</div>
+                      <span className="badge badge-muted" style={{ fontSize: 11 }}>{s.session_code}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>
+                      {new Date(s.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {s.ended_at && ` · ended ${new Date(s.ended_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>👥 {s.student_count || 0} students</span>
+                      <span style={{ fontSize: 12, color: 'var(--primary)', marginLeft: 'auto' }}>View Report →</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   )
 }
 
-function StatCard({ icon, label, value, color }: { icon: string; label: string; value: string | number; color: string }) {
+function MotionHeader({ title, subtitle, actions }: { title: string; subtitle: string; actions?: React.ReactNode }) {
   return (
-    <div className="stat-card">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <span style={{ fontSize: 18 }}>{icon}</span>
-        <div className="stat-label">{label}</div>
-      </div>
-      <div className="stat-value" style={{ color }}>{value}</div>
+    <div className="page-header">
+      <div className="page-header-left"><h2>{title}</h2><p>{subtitle}</p></div>
+      {actions}
     </div>
   )
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  qrHeader: {
-    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 20
-  },
-  qrWrap: {
-    display: 'flex', justifyContent: 'center',
-    background: 'rgba(0,0,0,0.3)',
-    borderRadius: 16, padding: 20, marginBottom: 20
-  },
-  codeBlock: {
-    background: 'var(--bg-elevated)',
-    borderRadius: 10, padding: '12px 20px', marginBottom: 12
-  },
-  codeLabel: { fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: 'var(--text-muted)', marginBottom: 4 },
-  codeValue: { fontSize: 32, fontWeight: 800, fontFamily: 'JetBrains Mono', color: 'var(--primary)', letterSpacing: 4 },
-  urlRow: {
-    display: 'flex', alignItems: 'center', gap: 8,
-    background: 'var(--bg-base)', border: '1px solid var(--border)',
-    borderRadius: 8, padding: '6px 10px', marginBottom: 12, overflow: 'hidden'
-  },
-  urlText: { flex: 1, fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  helpText: { fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 },
-  actionRow: { display: 'flex', gap: 8, justifyContent: 'center' },
-  rosterHeader: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--border)'
-  },
-  rosterCount: { fontSize: 12, color: 'var(--text-muted)' },
-  rosterList: { overflowY: 'auto', maxHeight: 380 },
-  rosterItem: {
-    display: 'flex', alignItems: 'center', gap: 10,
-    padding: '10px 4px', borderBottom: '1px solid var(--border)'
-  },
-  studentAvatar: {
-    width: 32, height: 32, borderRadius: '50%',
-    background: 'var(--bg-elevated)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 14, fontWeight: 700, flexShrink: 0, color: 'var(--text-primary)'
-  },
-  studentInfo: { flex: 1, minWidth: 0 },
-  studentName: { fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' },
-  studentMeta: { fontSize: 11, color: 'var(--text-muted)' }
+function MotionGrid({ children }: { children: React.ReactNode }) {
+  return <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20 }}>{children}</div>
+}
+
+function SessionPanel({ activeSession, navigate, copyUrl, students }: any) {
+  return (
+    <>
+      <div className="card glow" style={{ textAlign: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 16 }}>
+          <div className="live-dot" />
+          <h3 style={{ margin: 0 }}>Session Live</h3>
+          <span className="badge badge-success">LIVE</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'center', background: 'rgba(0,0,0,0.3)', borderRadius: 16, padding: 20, marginBottom: 16 }}>
+          <QRCode value={activeSession.joinUrl} size={200} bgColor="transparent" fgColor="#e2e8f0" />
+        </div>
+        <div style={{ background: 'var(--bg-elevated)', borderRadius: 10, padding: '12px 20px', marginBottom: 12 }}>
+          <MotionSmall>SESSION CODE</MotionSmall>
+          <div style={{ fontSize: 28, fontWeight: 800, fontFamily: 'JetBrains Mono', color: 'var(--primary)', letterSpacing: 4 }}>{activeSession.code}</div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/chat')}>💬 Chat</button>
+          <button className="btn btn-ghost btn-sm" onClick={copyUrl}>📋 Copy URL</button>
+        </div>
+      </div>
+      <div className="card">
+        <h4 style={{ marginBottom: 12 }}>Students ({students.length})</h4>
+        <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+          {students.length === 0 ? (
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: 24 }}>Waiting for students…</p>
+          ) : (
+            students.map((s: any) => (
+              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>{s.name[0]}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    {s.percentage !== undefined ? `Score ${Math.round(s.percentage)}%` : 'Joined'}
+                  </div>
+                </div>
+                {s.percentage !== undefined && (
+                  <span className={`badge ${s.percentage >= 60 ? 'badge-success' : 'badge-danger'}`}>{Math.round(s.percentage)}%</span>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
+
+function MotionSmall({ children }: { children: React.ReactNode }) {
+  return <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: 'var(--text-muted)' }}>{children}</div>
 }

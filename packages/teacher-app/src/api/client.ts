@@ -47,8 +47,18 @@ export const aiApi = {
   status: () =>
     api.get('/ai/status').then((r) => r.data),
 
-  ask: (sessionId: string, senderId: string, senderName: string, question: string) =>
-    api.post('/ai/ask', { sessionId, senderId, senderName, question }).then((r) => r.data),
+  ask: (sessionId: string, senderId: string, senderName: string, question: string, sessionTopic?: string) =>
+    api.post('/ai/ask', { sessionId, senderId, senderName, question, sessionTopic }).then((r) => r.data),
+
+  command: (params: {
+    sessionId?: string
+    senderId: string
+    senderName: string
+    role: string
+    input: string
+    sessionTopic?: string
+    previousAnswer?: string
+  }) => api.post('/ai/command', params).then((r) => r.data),
 
   generate: (sessionId: string, teacherId: string, teacherName: string, topic: string) =>
     api.post('/ai/generate', { sessionId, teacherId, teacherName, topic }).then((r) => r.data),
@@ -56,8 +66,23 @@ export const aiApi = {
   generateTrivia: (sessionId: string, topic: string, difficulty: string) =>
     api.post('/ai/generate-trivia', { sessionId, topic, difficulty }).then((r) => r.data),
 
-  generateTriviaPreview: (topic: string, difficulty: string) =>
-    api.post('/ai/generate-trivia-preview', { topic, difficulty }, { timeout: 180000 }).then((r) => r.data)
+  generateTriviaPreview: (topic: string, difficulty: string, questionCount?: number, bloomLevel?: string, questionTypes?: string[]) =>
+    api.post('/ai/generate-trivia-preview', { topic, difficulty, questionCount, bloomLevel, questionTypes }, { timeout: 180000 }).then((r) => r.data),
+
+  regenerateQuestion: (topic: string, questionType?: string, bloomLevel?: string) =>
+    api.post('/ai/regenerate-question', { topic, questionType, bloomLevel }, { timeout: 120000 }).then((r) => r.data),
+
+  misconceptions: (sessionId: string) =>
+    api.get(`/ai/misconceptions/${sessionId}`).then((r) => r.data),
+
+  reteach: (sessionId: string, weakTopics: string[]) =>
+    api.post('/ai/reteach', { sessionId, weakTopics }).then((r) => r.data),
+
+  getReteachPlans: (sessionId: string) =>
+    api.get(`/ai/reteach/${sessionId}`).then((r) => r.data),
+
+  updateReteachPlan: (id: string, updates: object) =>
+    api.patch(`/ai/reteach/${id}`, updates).then((r) => r.data)
 }
 
 // ── Quiz ─────────────────────────────────────────────────────────
@@ -78,7 +103,10 @@ export const reportApi = {
     api.get(`/report/${sessionId}`).then((r) => r.data),
 
   export: (sessionId: string) =>
-    api.post('/report/export', { sessionId }).then((r) => r.data)
+    api.post('/report/export', { sessionId }).then((r) => r.data),
+
+  exportPdf: (sessionId: string) =>
+    api.post('/report/export-pdf', { sessionId }).then((r) => r.data)
 }
 
 // ── Knowledge Bases ───────────────────────────────────────────────
@@ -100,8 +128,26 @@ export const knowledgeApi = {
 
 // ── Sync ──────────────────────────────────────────────────────────
 export const syncApi = {
-  sync: (teacherId: string) =>
-    api.post('/ai/sync', { teacherId }).then((r) => r.data)
+  sync: (teacherId: string, sessionId?: string) =>
+    api.post('/ai/sync', { teacherId, sessionId }).then((r) => r.data),
+
+  status: (teacherId?: string) =>
+    api.get('/ai/sync/status', { params: teacherId ? { teacherId } : {} }).then((r) => r.data),
+
+  retry: (teacherId: string) =>
+    api.post('/ai/sync/retry', { teacherId }).then((r) => r.data),
+
+  exportBundle: (sessionId: string, teacherId: string) =>
+    api.post('/sync/export-bundle', { sessionId, teacherId }).then((r) => r.data),
+
+  importBundle: (bundle: object) =>
+    api.post('/sync/import-bundle', { bundle }).then((r) => r.data),
+
+  pullCloud: (teacherId: string, sessionId: string) =>
+    api.post('/sync/pull-cloud', { teacherId, sessionId }).then((r) => r.data),
+
+  listCloud: (teacherId: string) =>
+    api.get(`/sync/cloud/${teacherId}`).then((r) => r.data)
 }
 
 export default api

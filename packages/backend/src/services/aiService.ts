@@ -156,7 +156,7 @@ class GroqProvider implements AIProvider {
   private client: Groq | null = null
   private model: string
   constructor() {
-    this.model = process.env.GROQ_MODEL || 'llama3-70b-8192'
+    this.model = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'
     if (process.env.GROQ_API_KEY) {
       this.client = new Groq({ apiKey: process.env.GROQ_API_KEY })
     }
@@ -271,25 +271,23 @@ Weak topics: ${weakTopics.join(', ') || 'General'}
 Wrong answers:
 ${wrongSummary || 'None provided'}
 
-Generate personalized homework as JSON:
+Generate SHORT personalized homework as JSON (concise wording for children):
 {
-  "followUpQuestions": ["question1", "question2", "question3"],
+  "followUpQuestions": ["short q1", "short q2", "short q3"],
   "revisionTasks": ["task1", "task2"],
-  "conceptRecap": "Brief plain-English recap of the weak concepts",
-  "practiceChallenge": "One challenge problem they should try",
-  "askTeacherPrompts": ["Suggested question 1 to ask teacher", "Suggested question 2"]
+  "conceptRecap": "2-3 sentences max",
+  "practiceChallenge": "one short challenge",
+  "askTeacherPrompts": ["question for teacher"]
 }
 Return ONLY the JSON object.`
 
-  try {
-    const raw = await aiProvider.ask(prompt, HOMEWORK_SYSTEM, 0.3, true)
-    const cleaned = raw.replace(/```json|```/g, '').trim()
-    const match = cleaned.match(/\{[\s\S]*\}/)
-    return JSON.parse(match ? match[0] : cleaned) as HomeworkOutput
-  } catch (err) {
-    console.warn('[aiService] generateHomework AI or Parse failed:', err)
-    return generateFallbackHomework(weakTopics, score, total)
-  }
+  const raw = await aiProvider.ask(prompt, HOMEWORK_SYSTEM, 0.3, true)
+  const cleaned = raw.replace(/```json|```/g, '').trim()
+  const match = cleaned.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('Homework JSON parse failed')
+  const parsed = JSON.parse(match[0]) as HomeworkOutput
+  if (!parsed.followUpQuestions?.length) throw new Error('Empty homework from AI')
+  return parsed
 }
 
 export async function generateAnalyticsSummary(params: {
@@ -401,11 +399,10 @@ Output ONLY a valid JSON array. Start with [ and end with ]. No other text.
 }
 
 export async function generateFlashcards(topic: string): Promise<{ front: string; back: string }[]> {
-  const prompt = `Create 8 study flashcards for the topic: "${topic}" (NCERT curriculum, Class 6-10).
-Respond with JSON ONLY in this exact format:
-[
-  { "front": "Question or term on the front of the card", "back": "Clear, concise answer or definition" }
-]
+  const prompt = `Create 8 study flashcards for: "${topic}" (NCERT Class 6-10).
+Each back answer MUST be 1-3 lines maximum. Concise only.
+JSON ONLY:
+[{"front":"Question:","back":"Short answer."}]
 `
   try {
     const raw = await aiProvider.ask(prompt, TEACHER_GENERATE_SYSTEM, 0.4, true)

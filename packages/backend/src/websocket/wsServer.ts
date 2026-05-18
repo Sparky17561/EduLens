@@ -12,6 +12,7 @@ export type WSEventType =
   | 'session_ended'
   | 'start_video'
   | 'flashcards_ready'
+  | 'analytics_updated'
   | 'ping'
   | 'pong'
 

@@ -1,10 +1,11 @@
 import React, { useState } from 'react'
-import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Alert } from 'react-native'
+import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native'
 import Svg, { Path, Circle } from 'react-native-svg'
 import { useNavigation } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootStackParamList } from '../navigation/AppNavigator'
 import { useSessionStore } from '../store/sessionStore'
+import { useProfileStore } from '../store/profileStore'
 import { ScreenScaffold, OfflineBadge, Chip } from '../components/ui'
 import { ScreenHeader } from '../components/widgets'
 import Illustration from '../components/Illustration'
@@ -16,30 +17,15 @@ const LANGUAGES = ['English', 'हिंदी', 'தமிழ்', 'বাং�
 
 export default function WelcomeScreen() {
   const nav = useNavigation<Nav>()
-  const { setStudent } = useSessionStore()
-  const [name, setName] = useState('')
-  const [lang, setLang] = useState('English')
+  const { student, session, clearSession } = useSessionStore()
+  const { getActiveProfile } = useProfileStore()
+  const profile = getActiveProfile()
+  const [lang, setLang] = useState(profile?.lang || 'English')
   const [showLangs, setShowLangs] = useState(false)
 
-  const validateName = () => {
-    if (!name.trim()) {
-      Alert.alert('Enter Your Name', 'Please fill in your name before choosing a role card.')
-      return false
-    }
-    return true
-  }
-
-  const handleQR = () => {
-    if (!validateName()) return
-    setStudent({ id: `stu-${Date.now()}`, name: name.trim() })
-    nav.navigate('QRScanner')
-  }
-
-  const handleCode = () => {
-    if (!validateName()) return
-    setStudent({ id: `stu-${Date.now()}`, name: name.trim() })
-    nav.navigate('CodeEntry')
-  }
+  const handleQR = () => nav.navigate('QRScanner')
+  const handleCode = () => nav.navigate('CodeEntry')
+  const handleSwitch = () => nav.navigate('ProfileSelect')
 
   return (
     <ScreenScaffold tint="dawn">
@@ -79,31 +65,38 @@ export default function WelcomeScreen() {
           </View>
         )}
 
-        {/* hero Ghibli illustration */}
+        {/* Active session banner */}
+        {session && !session.topic?.includes('ended') && (
+          <View style={styles.sessionBanner}>
+            <Text style={styles.sessionBannerText}>🟢 In session: {session.topic} · {session.code}</Text>
+            <Pressable onPress={() => { clearSession() }} style={styles.leaveBtn}>
+              <Text style={styles.leaveBtnText}>Leave</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Profile greeting */}
+        {profile && (
+          <Pressable style={styles.profileBadge} onPress={handleSwitch}>
+            <Text style={styles.profileAvatar}>{profile.avatar}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.profileName}>{profile.name}</Text>
+              <Text style={styles.profileSub}>Class {profile.grade} · Tap to switch</Text>
+            </View>
+            <Text style={styles.switchArrow}>⇄</Text>
+          </Pressable>
+        )}
+
+        {/* hero illustration */}
         <View style={styles.hero}>
-          <Illustration name="welcome" height={200} rounded={radius.lg} />
+          <Illustration name="welcome" height={180} rounded={radius.lg} />
         </View>
 
-        {/* editorial headline */}
-        <ScreenHeader title="" kicker="WELCOME TO EDULENS" />
+        <ScreenHeader title="" kicker="JOIN A SESSION" />
         <Text style={styles.headline}>
-          Every page holds a{'\n'}story waiting to be understood
+          Ready to learn?{'\n'}Pick how you want to join
         </Text>
-        
-        {/* Name entry field inside storybook cards */}
-        <View style={styles.inputCard}>
-          <Text style={styles.inputLabel}>WHAT IS YOUR NAME?</Text>
-          <TextInput
-            style={styles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="Enter your name..."
-            placeholderTextColor={colors.inkFaint}
-            autoCapitalize="words"
-          />
-        </View>
 
-        {/* role cards */}
         <RoleCard
           title="Scan QR Code to Join"
           desc="Point camera at your teacher's session screen"
@@ -135,14 +128,11 @@ export default function WelcomeScreen() {
   )
 }
 
-function RoleCard({ title, desc, onPress, tone, wash, glyph }) {
+function RoleCard({ title, desc, onPress, tone, wash, glyph }: any) {
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.role,
-        { transform: [{ scale: pressed ? 0.98 : 1 }] },
-      ]}
+      style={({ pressed }) => [styles.role, { transform: [{ scale: pressed ? 0.98 : 1 }] }]}
     >
       <View style={[styles.roleIcon, { backgroundColor: wash }]}>
         <Svg width={28} height={28} viewBox="0 0 24 24">{glyph}</Svg>
@@ -162,88 +152,65 @@ function RoleCard({ title, desc, onPress, tone, wash, glyph }) {
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingBottom: spacing.xl,
-  },
+  scrollContent: { paddingBottom: spacing.xl },
   topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xs,
-    marginTop: spacing.xs,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: spacing.xs, marginTop: spacing.xs,
   },
   brandRow: { flexDirection: 'row', alignItems: 'center' },
   mark: {
     width: 32, height: 32, borderRadius: 16,
     backgroundColor: colors.coral,
-    alignItems: 'center', justifyContent: 'center',
-    marginRight: 8,
+    alignItems: 'center', justifyContent: 'center', marginRight: 8,
   },
-  brand: { fontFamily: type.heading.fontFamily, fontSize: 20, color: colors.ink, fontWeight: '700' },
+  brand: { fontFamily: type.heading?.fontFamily, fontSize: 20, color: colors.ink, fontWeight: '700' },
   langChip: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: colors.card,
     paddingVertical: 5, paddingHorizontal: 10,
-    borderRadius: radius.pill,
-    ...shadow.soft,
+    borderRadius: radius.pill, ...shadow.soft,
   },
-  langChipText: {
-    ...type.smallBold, color: colors.skyDeep, marginLeft: 6,
-  },
+  langChipText: { ...type.smallBold, color: colors.skyDeep, marginLeft: 6 },
   langTray: {
     flexDirection: 'row', flexWrap: 'wrap',
-    backgroundColor: 'rgba(255,255,255,0.6)',
-    borderRadius: radius.md,
-    padding: spacing.sm,
-    marginBottom: spacing.sm,
+    backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: radius.md,
+    padding: spacing.sm, marginBottom: spacing.sm,
   },
+  profileBadge: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: radius.lg, padding: spacing.sm,
+    marginBottom: spacing.sm,
+    borderWidth: 1, borderColor: colors.line,
+    ...shadow.soft,
+  },
+  profileAvatar: { fontSize: 32, marginRight: 12 },
+  profileName: { ...type.subhead, color: colors.ink, fontWeight: '700' },
+  profileSub: { ...type.small, color: colors.inkSoft },
+  switchArrow: { fontSize: 18, color: colors.coral, paddingLeft: 8 },
+  sessionBanner: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#E8FFE8', borderRadius: radius.md,
+    padding: 10, marginBottom: spacing.sm,
+    borderWidth: 1, borderColor: '#A0E0A0',
+  },
+  sessionBannerText: { ...type.small, color: '#2D6A2D', flex: 1 },
+  leaveBtn: { paddingHorizontal: 10, paddingVertical: 4, backgroundColor: '#FF6B6B', borderRadius: radius.pill },
+  leaveBtnText: { ...type.smallBold, color: colors.white },
   hero: { marginTop: spacing.xs, marginBottom: spacing.md, alignItems: 'center' },
   headline: {
-    fontFamily: type.hero.fontFamily,
-    fontSize: 26, lineHeight: 32,
-    color: colors.ink,
-    marginBottom: spacing.md,
-    fontWeight: '700',
-  },
-  inputCard: {
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    ...shadow.soft,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  inputLabel: {
-    ...type.caption,
-    color: colors.coralDeep,
-    marginBottom: 8,
-  },
-  input: {
-    ...type.body,
-    fontSize: 16,
-    color: colors.ink,
-    padding: 10,
-    backgroundColor: colors.paper,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.line,
+    fontFamily: type.hero?.fontFamily, fontSize: 24, lineHeight: 32,
+    color: colors.ink, marginBottom: spacing.md, fontWeight: '700',
   },
   role: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    ...shadow.soft,
-    borderWidth: 1,
-    borderColor: colors.line,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: colors.card, borderRadius: radius.lg,
+    padding: spacing.md, marginBottom: spacing.sm,
+    ...shadow.soft, borderWidth: 1, borderColor: colors.line,
   },
   roleIcon: {
     width: 48, height: 48, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center',
-    marginRight: spacing.md,
+    alignItems: 'center', justifyContent: 'center', marginRight: spacing.md,
   },
   roleTitle: { ...type.subhead, color: colors.ink },
   roleDesc: { ...type.small, color: colors.inkSoft, marginTop: 2 },

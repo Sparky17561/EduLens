@@ -9,12 +9,80 @@ import { ScreenScaffold, PrimaryButton, OfflineBadge, Badge } from '../component
 import { ScreenHeader } from '../components/widgets'
 import Illustration from '../components/Illustration'
 import { colors, type, spacing, radius, shadow } from '../theme/tokens'
+import { syncApi, quizApi, sessionApi } from '../api/client'
+import { useProfileStore } from '../store/profileStore'
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Lobby'>
 
 export default function LobbyScreen() {
   const nav = useNavigation<Nav>()
-  const { student, session, sessionEnded, quizResult, pendingQuiz, setPendingQuiz, activeQuiz } = useSessionStore()
+  const { student, session, sessionEnded, quizResult, pendingQuiz, setPendingQuiz, activeQuiz, setActiveQuiz, setFlashcards, flashcards, offlineQueue, clearQueue, setSyncPending, completedQuizIds } = useSessionStore()
+  const { addSessionRecord } = useProfileStore()
+  const [syncing, setSyncing] = React.useState(false)
+  const [syncMsg, setSyncMsg] = React.useState('')
+  const joinTimeRef = React.useRef(Date.now())
+  const savedRef = React.useRef(false)
+
+  // Save session record (with full quiz data) when session ends
+  React.useEffect(() => {
+    if (sessionEnded && session && !savedRef.current) {
+      savedRef.current = true
+      const duration = Math.round((Date.now() - joinTimeRef.current) / 1000)
+      const qr = useSessionStore.getState().quizResult
+      addSessionRecord({
+        id: `${session.id}-${Date.now()}`,
+        sessionId: session.id,
+        code: session.code,
+        topic: session.topic,
+        date: new Date().toISOString(),
+        durationSeconds: duration,
+        quizScore: qr?.score,
+        quizTotal: qr?.total,
+        quizPercentage: qr ? Math.round(qr.percentage) : undefined,
+        weakTopics: qr?.weakTopics,
+        strongTopics: qr?.strongTopics,
+        topicBreakdown: qr?.topicBreakdown,
+        homework: qr?.homework,
+        reportId: qr?.reportId,
+      })
+    }
+  }, [sessionEnded])
+
+  // Fetch active quiz — but skip if this student already completed it
+  React.useEffect(() => {
+    if (!session || quizResult || activeQuiz) return
+    quizApi.getActive(session.id).then(data => {
+      if (data.quiz) {
+        if (completedQuizIds.includes(data.quiz.quizId)) return
+        setActiveQuiz(data.quiz)
+        setPendingQuiz(true)
+      }
+    }).catch(() => {})
+  }, [session?.id])
+
+  // Fetch flashcards if WS event was missed
+  React.useEffect(() => {
+    if (!session || flashcards.length > 0) return
+    sessionApi.get(session.id).then((data: any) => {
+      if (data.flashcards?.length) setFlashcards(data.flashcards)
+    }).catch(() => {})
+  }, [session?.id])
+
+  const handleSync = async () => {
+    if (!student || !session) return
+    setSyncing(true)
+    setSyncMsg('')
+    try {
+      const items = offlineQueue.map(q => ({ type: 'chat', payload: { content: q.content } }))
+      const res = await syncApi.studentPush(student.id, session.id, items, student.name)
+      clearQueue()
+      setSyncPending(res.pending || 0)
+      setSyncMsg(`Synced ${res.queued || 0} item(s) · ${res.pending || 0} pending`)
+    } catch (e: any) {
+      setSyncMsg(e.message || 'Sync failed')
+    }
+    setSyncing(false)
+  }
 
   const handleStartQuiz = () => {
     setPendingQuiz(false)
@@ -28,7 +96,7 @@ export default function LobbyScreen() {
   if (sessionEnded) {
     return (
       <ScreenScaffold tint="dawn" scroll={false}>
-        <ScreenHeader title="Class Dismissed" kicker="TAKE-HOME MODE" onBack={() => nav.navigate('Welcome')} />
+        <ScreenHeader title="Class Dismissed" kicker="TAKE-HOME MODE" onBack={() => nav.navigate('MainTabs')} />
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
           <View style={styles.endedHero}>
@@ -65,7 +133,7 @@ export default function LobbyScreen() {
             />
 
             <Pressable
-              onPress={() => nav.navigate('Welcome')}
+              onPress={() => nav.navigate('MainTabs')}
               style={({ pressed }) => [
                 styles.exitBtn,
                 { opacity: pressed ? 0.7 : 1 }
@@ -84,7 +152,7 @@ export default function LobbyScreen() {
       <ScreenHeader
         title="Class Lobby"
         kicker="LIVE SESSION"
-        onBack={() => nav.navigate('Welcome')}
+        onBack={() => nav.navigate('MainTabs')}
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -113,6 +181,20 @@ export default function LobbyScreen() {
             <Text style={styles.profileSub}>Student Participant</Text>
           </View>
         </View>
+
+        {(offlineQueue.length > 0 || syncMsg) && (
+          <View style={styles.syncCard}>
+            <Text style={styles.syncTitle}>Offline queue · {offlineQueue.length} message(s)</Text>
+            {syncMsg ? <Text style={styles.syncSub}>{syncMsg}</Text> : null}
+            <Pressable
+              onPress={handleSync}
+              disabled={syncing || offlineQueue.length === 0}
+              style={({ pressed }) => [styles.syncBtn, { opacity: pressed || syncing ? 0.7 : 1 }]}
+            >
+              <Text style={styles.syncBtnText}>{syncing ? 'Syncing…' : 'Push to teacher'}</Text>
+            </Pressable>
+          </View>
+        )}
 
         {/* === STUDENT DASHBOARD === */}
         <Text style={styles.dashTitle}>📱 My Dashboard</Text>
@@ -446,6 +528,24 @@ const styles = StyleSheet.create({
     color: colors.inkSoft,
     marginTop: 2,
   },
+  syncCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    ...shadow.soft,
+  },
+  syncTitle: { ...type.bodyBold, color: colors.ink, marginBottom: 4 },
+  syncSub: { ...type.caption, color: colors.inkSoft, marginBottom: spacing.sm },
+  syncBtn: {
+    backgroundColor: colors.sageDeep,
+    borderRadius: radius.lg,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  syncBtnText: { ...type.bodyBold, color: colors.white },
   // === Quiz Popup Modal ===
   modalOverlay: {
     flex: 1,

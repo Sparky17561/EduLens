@@ -1,15 +1,20 @@
 import React, { useEffect, useState } from 'react'
 import { useAppStore } from '../store/appStore'
-import { reportApi, sessionApi } from '../api/client'
+import { reportApi, sessionApi, syncApi } from '../api/client'
+import { useToast } from '../components/Toast'
 import QRCode from 'qrcode.react'
+import StudentQRScanner from '../components/StudentQRScanner'
 
 export default function Reports() {
   const { teacher, activeSession } = useAppStore()
+  const { toast } = useToast()
   const [sessions, setSessions] = useState<any[]>([])
   const [selectedReport, setSelectedReport] = useState<any>(null)
   const [exportData, setExportData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
+  const [showQRScanner, setShowQRScanner] = useState(false)
+  const [scannedStudent, setScannedStudent] = useState<any>(null)
 
   useEffect(() => {
     if (!teacher) return
@@ -46,6 +51,52 @@ export default function Reports() {
     URL.revokeObjectURL(url)
   }
 
+  const exportBundle = async (sessionId: string) => {
+    if (!teacher) return
+    setLoading(true)
+    try {
+      const data = await syncApi.exportBundle(sessionId, teacher.id)
+      toast(`Bundle saved: ${data.filename}`, 'success')
+    } catch (e: any) {
+      toast(e.message || 'Export failed', 'error')
+    }
+    setLoading(false)
+  }
+
+  const importBundleFile = async (file: File) => {
+    setLoading(true)
+    try {
+      const text = await file.text()
+      const bundle = JSON.parse(text)
+      const r = await syncApi.importBundle(bundle)
+      toast(`Restored session ${r.sessionId}`, 'success')
+      loadReport(r.sessionId)
+    } catch (e: any) {
+      toast(e.message || 'Invalid bundle JSON', 'error')
+    }
+    setLoading(false)
+  }
+
+  const downloadPdf = async (sessionId: string) => {
+    setLoading(true)
+    try {
+      const data = await reportApi.exportPdf(sessionId)
+      const html = data.html || data.content
+      if (!html) throw new Error('No PDF content')
+      const w = window.open('', '_blank')
+      if (w) {
+        w.document.write(html)
+        w.document.close()
+        w.focus()
+        setTimeout(() => w.print(), 400)
+      }
+      toast('Print dialog opened — save as PDF', 'success')
+    } catch (e: any) {
+      toast(e.message || 'PDF export failed', 'error')
+    }
+    setLoading(false)
+  }
+
   const report = selectedReport
 
   return (
@@ -53,7 +104,16 @@ export default function Reports() {
       <div className="page-header">
         <div className="page-header-left">
           <h2>Reports</h2>
-          <p>Session history and export</p>
+          <p>Session history, export & restore</p>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-primary btn-sm" onClick={() => setShowQRScanner(true)}>
+            📷 Scan Student QR
+          </button>
+          <label className="btn btn-ghost btn-sm" style={{ cursor: 'pointer' }}>
+            📥 Import bundle JSON
+            <input type="file" accept=".json" hidden onChange={e => e.target.files?.[0] && importBundleFile(e.target.files[0])} />
+          </label>
         </div>
       </div>
 
@@ -96,10 +156,34 @@ export default function Reports() {
                     {new Date(report.session?.created_at).toLocaleString()} · Code: {report.session?.session_code}
                   </p>
                 </div>
+                <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn btn-primary" onClick={() => exportReport(report.session.id)} disabled={loading}>
-                  📤 Export Report
+                  📤 Export JSON/QR
                 </button>
+                <button className="btn btn-ghost" onClick={() => downloadPdf(report.session.id)} disabled={loading}>
+                  🖨 PDF
+                </button>
+                <button className="btn btn-ghost" onClick={() => exportBundle(report.session.id)} disabled={loading}>
+                  📦 Bundle
+                </button>
+                </div>
               </div>
+
+              {report.insights && (
+                <div className="card" style={{ marginBottom: 16, borderLeft: '4px solid var(--primary)' }}>
+                  <h4 style={{ marginBottom: 10 }}>Actionable Insights</h4>
+                  <div className="grid-3" style={{ marginBottom: 12 }}>
+                    <div><span className="stat-label">Class avg</span><div className="stat-value">{report.insights.classSummary?.avgScore ?? '—'}%</div></div>
+                    <div><span className="stat-label">Homework done</span><div className="stat-value">{report.insights.classSummary?.homeworkCompletionRate ?? 0}%</div></div>
+                    <div><span className="stat-label">Weak areas</span><div style={{ fontSize: 12 }}>{(report.insights.weakAreas || []).join(', ') || 'None'}</div></div>
+                  </div>
+                  {report.insights.recommendations?.length > 0 && (
+                    <ul style={{ fontSize: 13, lineHeight: 1.7, paddingLeft: 18 }}>
+                      {report.insights.recommendations.map((r: string, i: number) => <li key={i}>{r}</li>)}
+                    </ul>
+                  )}
+                </div>
+              )}
 
               {/* Summary stats */}
               <div className="grid-3" style={{ marginBottom: 16 }}>
@@ -169,6 +253,72 @@ export default function Reports() {
 
             <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={downloadJson}>
               ⬇ Download JSON
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Student QR scanner */}
+      {showQRScanner && (
+        <StudentQRScanner
+          onScan={(report) => {
+            setScannedStudent(report)
+            setShowQRScanner(false)
+            toast(`Received report from ${report.student.name}`, 'success')
+          }}
+          onClose={() => setShowQRScanner(false)}
+        />
+      )}
+
+      {/* Scanned student report */}
+      {scannedStudent && (
+        <div className="modal-overlay" onClick={() => setScannedStudent(null)}>
+          <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>📊 {scannedStudent.student.name}'s Report</h3>
+              <button className="modal-close" onClick={() => setScannedStudent(null)}>✕</button>
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
+              {scannedStudent.session.topic} · {scannedStudent.session.code} · {scannedStudent.date}
+            </div>
+            <div className="grid-3" style={{ marginBottom: 16 }}>
+              <div className="stat-card">
+                <div className="stat-label">Score</div>
+                <div className="stat-value">{scannedStudent.quiz.score}/{scannedStudent.quiz.total}</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-label">Percentage</div>
+                <div className="stat-value" style={{ color: scannedStudent.quiz.percentage >= 60 ? 'var(--success)' : 'var(--danger)' }}>
+                  {scannedStudent.quiz.percentage}%
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-label">Grade</div>
+                <div className="stat-value">
+                  {scannedStudent.quiz.percentage >= 90 ? 'A' : scannedStudent.quiz.percentage >= 75 ? 'B' : scannedStudent.quiz.percentage >= 60 ? 'C' : 'D'}
+                </div>
+              </div>
+            </div>
+            {scannedStudent.weakTopics?.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-danger)', marginBottom: 6 }}>⚠️ Needs Review</div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{scannedStudent.weakTopics.join(', ')}</div>
+              </div>
+            )}
+            {scannedStudent.strongTopics?.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--success)', marginBottom: 6 }}>✅ Mastered</div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{scannedStudent.strongTopics.join(', ')}</div>
+              </div>
+            )}
+            {scannedStudent.homework?.conceptRecap && (
+              <div style={{ padding: 12, background: 'var(--bg-elevated)', borderRadius: 8, fontSize: 12, color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                📚 {scannedStudent.homework.conceptRecap}
+              </div>
+            )}
+            <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
+                    onClick={() => setShowQRScanner(true)}>
+              📷 Scan Another Student
             </button>
           </div>
         </div>

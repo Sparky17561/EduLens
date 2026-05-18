@@ -50,9 +50,14 @@ router.post('/message', (req: Request, res: Response) => {
 router.get('/:sessionId', (req: Request, res: Response) => {
   try {
     const db = getDb()
-    const messages = db.prepare(
+    const rows = db.prepare(
       `SELECT * FROM chat_messages WHERE session_id = ? ORDER BY created_at ASC`
-    ).all(req.params.sessionId)
+    ).all(req.params.sessionId) as any[]
+    const messages = rows.map(r => {
+      let meta: any = {}
+      try { meta = JSON.parse(r.meta_json || '{}') } catch { /* ignore */ }
+      return { ...r, citations: meta.citations, confidence: meta.confidence, confidenceNote: meta.confidenceNote }
+    })
     res.json({ messages })
   } catch (err: any) {
     res.status(500).json({ error: err.message })

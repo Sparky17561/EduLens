@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(node -e \"console.log\\(require\\('c:/EduLens/node_modules/metro/package.json'\\).version\\)\")",
+      "Bash(node -e \"console.log\\(require\\('c:/EduLens/packages/student-app/node_modules/metro/package.json'\\).version\\)\")",
+      "Bash(node -e ' *)",
+      "Bash(node -e \"console.log\\(require\\('c:/EduLens/packages/student-app/node_modules/@expo/cli/package.json'\\).version\\)\")",
+      "Bash(npm info *)",
+      "Bash(npx expo *)",
+      "Bash(node -e \"console.log\\(require.resolve\\('metro', {paths: ['c:/EduLens/packages/student-app/node_modules']}\\)\\)\")",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/expo/package.json'\\).version\\)\")",
+      "Bash(node -e \"console.log\\(require\\('c:/EduLens/node_modules/@expo/cli/package.json'\\).version\\)\")",
+      "Bash(where expo *)",
+      "Bash(npx --no-install expo --version)",
+      "Bash(node -e \"const cp=require\\('child_process'\\);console.log\\(cp.execSync\\('npx expo --version',{cwd:'c:/EduLens/packages/student-app'}\\).toString\\(\\)\\)\")",
+      "Bash(node -e \"const d=require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\);const v=JSON.parse\\(d\\);console.log\\(v.slice\\(-8\\).join\\('\\\\n'\\)\\)\")",
+      "Bash(.\\\\node_modules\\\\.bin\\\\expo install *)",
+      "Bash(node -e \"console.log\\(require\\('c:/EduLens/packages/student-app/node_modules/expo-asset/package.json'\\).version\\)\")",
+      "Bash(curl -s http://localhost:11434/api/tags)",
+      "PowerShell($r = Invoke-RestMethod -Uri \"http://localhost:11434/api/tags\" -ErrorAction SilentlyContinue; if \\($r\\) { $r.models | Select-Object name } else { \"Ollama not reachable\" })",
+      "PowerShell(ollama list 2>&1)",
+      "Bash(Get-ChildItem -Path \"c:\\\\EduLens\\\\EduLens-vrushali\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(node -e \"require\\('dotenv'\\).config\\({path: require\\('path'\\).resolve\\(__dirname, '../../.env'\\)}\\); console.log\\('OLLAMA_MODEL:', process.env.OLLAMA_MODEL, 'GROQ_KEY:', process.env.GROQ_API_KEY ? 'set' : 'missing'\\)\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\EduLens\\\\packages\\\\student-app\\\\src\\\\screens\\\\tabs\")",
+      "PowerShell(cd \"c:\\\\EduLens\\\\packages\\\\teacher-app\"; npx tsc --noEmit 2>&1 | Where-Object { $_ -match \"StudentQRScanner|Reports\" })",
+      "PowerShell(cd \"c:\\\\EduLens\\\\packages\\\\teacher-app\"; $errors = npx tsc --noEmit 2>&1; $errors | Where-Object { $_ -match \"StudentQRScanner|Reports\" } | Out-String; Write-Host \"done\")",
+      "PowerShell(cd \"c:\\\\EduLens\\\\packages\\\\teacher-app\"; npx tsc --noEmit 2>&1 | Where-Object { $_ -match \"Dashboard\" })"
+    ]
+  }
+}

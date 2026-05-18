@@ -19,8 +19,11 @@ export interface ChatMessage {
   senderName: string
   role: 'teacher' | 'student' | 'ai'
   content: string
-  messageType: 'chat' | 'ask' | 'generate' | 'system'
+  messageType: string
   createdAt: string
+  citations?: Array<{ label?: string; source?: string; chapter?: string; page?: number }>
+  confidence?: 'high' | 'medium' | 'low'
+  confidenceNote?: string
 }
 
 export interface QuizQuestion {

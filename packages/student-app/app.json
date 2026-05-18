@@ -3,10 +3,14 @@
     "name": "EduLens Student",
     "slug": "edulens-student",
     "version": "1.0.0",
+    "scheme": "edulens",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "splash": {
       "backgroundColor": "#6366f1"
+    },
+    "updates": {
+      "enabled": false
     },
     "ios": {
       "supportsTablet": true,
@@ -17,10 +21,18 @@
         "backgroundColor": "#6366f1"
       },
       "package": "com.edulens.student",
-      "permissions": ["CAMERA"]
+      "permissions": [
+        "CAMERA"
+      ]
     },
     "plugins": [
-      ["expo-camera", { "cameraPermission": "Allow EduLens to use your camera to scan QR codes." }]
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow EduLens to use your camera to scan QR codes."
+        }
+      ],
+      "expo-font"
     ]
   }
 }

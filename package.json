@@ -4,8 +4,7 @@
   "private": true,
   "workspaces": [
     "packages/backend",
-    "packages/teacher-app",
-    "packages/student-app"
+    "packages/teacher-app"
   ],
   "scripts": {
     "dev:backend": "npm run dev --workspace=packages/backend",

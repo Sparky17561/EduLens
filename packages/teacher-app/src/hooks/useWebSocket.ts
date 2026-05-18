@@ -58,7 +58,10 @@ export function useWebSocket(sessionId: string | null, port: number = 3001) {
               role: msg.payload.role,
               content: msg.payload.content,
               messageType: msg.payload.messageType || 'chat',
-              createdAt: msg.payload.createdAt || new Date().toISOString()
+              createdAt: msg.payload.createdAt || new Date().toISOString(),
+              citations: msg.payload.citations,
+              confidence: msg.payload.confidence,
+              confidenceNote: msg.payload.confidenceNote
             })
             break
 
@@ -84,6 +87,10 @@ export function useWebSocket(sessionId: string | null, port: number = 3001) {
 
           case 'homework_ready':
             updateStudent(msg.payload.studentId, { homework: msg.payload.homework })
+            break
+
+          case 'analytics_updated':
+            window.dispatchEvent(new CustomEvent('edulens:analytics_updated', { detail: msg.payload }))
             break
 
           case 'session_ended':

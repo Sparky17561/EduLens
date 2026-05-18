@@ -25,18 +25,49 @@ export const chatApi = {
 }
 
 export const aiApi = {
-  ask: (sessionId: string, senderId: string, senderName: string, question: string) =>
-    api.post('/ai/ask', { sessionId, senderId, senderName, question }).then(r => r.data)
+  ask: (sessionId: string, senderId: string, senderName: string, question: string, sessionTopic?: string) =>
+    api.post('/ai/ask', { sessionId, senderId, senderName, question, sessionTopic }).then(r => r.data),
+
+  command: (params: {
+    sessionId?: string
+    senderId: string
+    senderName: string
+    role: string
+    input: string
+    sessionTopic?: string
+  }) => api.post('/ai/command', params).then(r => r.data)
+}
+
+export const syncApi = {
+  run: (teacherId: string, sessionId?: string) =>
+    api.post('/sync/run', { teacherId, sessionId }).catch(() =>
+      api.post('/ai/sync', { teacherId, sessionId }).then(r => r.data)
+    ),
+  status: (actorId: string) =>
+    api.get('/sync/status', { params: { actorId } }).catch(() =>
+      api.get('/ai/sync/status', { params: { teacherId: actorId } }).then(r => r.data)
+    ),
+  studentPush: (studentId: string, sessionId: string, items: { type: string; payload: unknown }[], studentName?: string) =>
+    api.post('/sync/student-push', { studentId, sessionId, studentName, items }).then(r => r.data)
 }
 
 export const quizApi = {
   submit: (quizId: string, sessionId: string, studentId: string, studentName: string, answers: any[]) =>
-    api.post('/quiz/submit', { quizId, sessionId, studentId, studentName, answers }).then(r => r.data)
+    api.post('/quiz/submit', { quizId, sessionId, studentId, studentName, answers }).then(r => r.data),
+  getActive: (sessionId: string) =>
+    api.get(`/quiz/active/${sessionId}`).then(r => r.data)
 }
 
 export const reportApi = {
   get: (sessionId: string) =>
     api.get(`/report/${sessionId}`).then(r => r.data)
+}
+
+export const audioApi = {
+  speak: (text: string, language: string) =>
+    api.post('/ai/speak', { text, language }).then(r => r.data),
+  voiceAsk: (formData: FormData) =>
+    api.post('/ai/voice-ask', formData, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120000 }).then(r => r.data)
 }
 
 export default api

@@ -1,42 +1,36 @@
 /* ═══════════════════════════════════════════════════════════════
-   EduLens Teacher App — Design System
-   Dark mode · Indigo accent · Premium glassmorphism
+   EduLens Teacher — Ghibli-storybook theme (matches student app)
 ═══════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Background layers */
-  --bg-base:      #0d0f17;
-  --bg-surface:   #12151f;
-  --bg-card:      #1a1d2e;
-  --bg-elevated:  #1f2336;
-  --bg-overlay:   rgba(13, 15, 23, 0.85);
+  --bg-base:      #FBF6EE;
+  --bg-surface:   #FFFDF9;
+  --bg-card:      #FFFFFF;
+  --bg-elevated:  #F3E9D9;
+  --bg-overlay:   rgba(46, 42, 51, 0.45);
 
-  /* Borders */
-  --border:       #252839;
-  --border-hover: #3a3d52;
-  --border-focus: #6366f1;
+  --border:       #EAE0D0;
+  --border-hover: #D4C4A8;
+  --border-focus: #6C7BD6;
 
-  /* Brand */
-  --primary:      #6366f1;
-  --primary-dim:  #4f51cc;
-  --primary-glow: rgba(99, 102, 241, 0.25);
-  --accent:       #8b5cf6;
-  --accent-glow:  rgba(139, 92, 246, 0.2);
+  --primary:      #6C7BD6;
+  --primary-dim:  #4A5AB8;
+  --primary-glow: rgba(108, 123, 214, 0.2);
+  --accent:       #E8836B;
+  --accent-glow:  rgba(232, 131, 107, 0.15);
 
-  /* Semantic */
-  --success:      #22c55e;
-  --success-dim:  rgba(34, 197, 94, 0.15);
-  --warning:      #f59e0b;
-  --warning-dim:  rgba(245, 158, 11, 0.15);
-  --danger:       #ef4444;
-  --danger-dim:   rgba(239, 68, 68, 0.15);
-  --info:         #38bdf8;
+  --success:      #5C8A62;
+  --success-dim:  #E7F1E8;
+  --warning:      #E4B363;
+  --warning-dim:  #FBF1DC;
+  --danger:       #C9586B;
+  --danger-dim:   #F6E2E5;
+  --info:         #6C7BD6;
 
-  /* Text */
-  --text-primary:   #e2e8f0;
-  --text-secondary: #94a3b8;
-  --text-muted:     #475569;
-  --text-inverse:   #0d0f17;
+  --text-primary:   #2E2A33;
+  --text-secondary: #5E5765;
+  --text-muted:     #9A93A0;
+  --text-inverse:   #FFFFFF;
 
   /* Radius */
   --radius-sm:  6px;
@@ -46,16 +40,16 @@
   --radius-full: 9999px;
 
   /* Shadows */
-  --shadow-sm:   0 1px 3px rgba(0,0,0,0.4);
-  --shadow-md:   0 4px 12px rgba(0,0,0,0.5);
-  --shadow-lg:   0 8px 32px rgba(0,0,0,0.6);
-  --shadow-glow: 0 0 24px var(--primary-glow);
+  --shadow-sm:   0 2px 8px rgba(46, 42, 51, 0.06);
+  --shadow-md:   0 4px 16px rgba(46, 42, 51, 0.08);
+  --shadow-lg:   0 8px 28px rgba(46, 42, 51, 0.1);
+  --shadow-glow: 0 4px 20px var(--primary-glow);
 
   /* Transitions */
   --transition: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Layout */
-  --sidebar-width: 220px;
+  --sidebar-width: 240px;
   --topbar-height: 56px;
 }
 
@@ -102,21 +96,74 @@ code, pre { font-family: 'JetBrains Mono', monospace; font-size: 13px; }
   margin-left: var(--sidebar-width);
 }
 
+.teacher-bottom-nav {
+  display: none;
+}
+
 .page-body {
   flex: 1;
   overflow-y: auto;
   padding: 24px;
 }
 
+/* Mobile / narrow — student-app style bottom tabs */
+@media (max-width: 960px) {
+  .app-shell aside { display: none !important; }
+  .app-content {
+    margin-left: 0;
+    padding-bottom: 72px;
+  }
+  .page-body { padding: 16px; }
+
+  .teacher-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: var(--bg-card);
+    border-top: 1.5px solid var(--border);
+    box-shadow: 0 -4px 20px rgba(46, 42, 51, 0.08);
+    z-index: 100;
+    padding: 0 8px;
+    justify-content: space-around;
+    align-items: center;
+  }
+
+  .teacher-bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 12px;
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    transition: color var(--transition), background var(--transition);
+  }
+
+  .teacher-bottom-nav-item.active {
+    color: var(--primary-dim);
+    background: var(--primary-glow);
+  }
+
+  .teacher-bottom-nav-icon { font-size: 20px; line-height: 1; }
+  .teacher-bottom-nav-label { font-size: 10px; }
+}
+
 /* ── Card ─────────────────────────────────────────────────────── */
 .card {
   background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-xl);
   padding: 20px;
-  transition: border-color var(--transition);
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition), box-shadow var(--transition);
 }
-.card:hover { border-color: var(--border-hover); }
+.card:hover { border-color: var(--border-hover); box-shadow: var(--shadow-md); }
 .card.glow { box-shadow: var(--shadow-glow); }
 
 /* ── Buttons ──────────────────────────────────────────────────── */
@@ -215,6 +262,22 @@ code, pre { font-family: 'JetBrains Mono', monospace; font-size: 13px; }
 .badge-primary { background: var(--primary-glow); color: var(--primary); }
 .badge-muted   { background: var(--bg-elevated); color: var(--text-muted); }
 
+/* ── Modern stat cards ───────────────────────────────────────── */
+.stat-card-modern {
+  position: relative;
+  overflow: hidden;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.stat-card-modern:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.stat-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.stat-icon { font-size: 20px; }
+.stat-trend { position: absolute; top: 12px; right: 12px; font-size: 11px; opacity: 0.7; }
+.stat-trend-up { color: var(--success); }
+.stat-trend-down { color: var(--danger); }
+
 /* ── Stat Cards ──────────────────────────────────────────────── */
 .stat-card {
   background: var(--bg-card);
@@ -265,6 +328,39 @@ code, pre { font-family: 'JetBrains Mono', monospace; font-size: 13px; }
 .empty-state .empty-icon { font-size: 48px; opacity: 0.5; }
 .empty-state h3 { color: var(--text-secondary); }
 .empty-state p  { font-size: 13px; color: var(--text-muted); }
+.empty-state-modern { background: var(--bg-card); border-radius: var(--radius-xl); border: 1px dashed var(--border); }
+
+.loading-block {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  padding: 40px; color: var(--text-muted); font-size: 14px;
+}
+
+.cmd-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.cmd-chip {
+  font-size: 11px; padding: 4px 10px; border-radius: var(--radius-full);
+  background: var(--bg-elevated); color: var(--text-secondary);
+  border: 1px solid var(--border); font-family: 'JetBrains Mono', monospace;
+}
+
+.health-card {
+  background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08));
+  border: 1px solid rgba(99,102,241,0.25);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+.sync-log-item {
+  font-size: 11px; padding: 6px 8px; border-radius: 6px;
+  background: var(--bg-elevated); margin-bottom: 4px;
+  display: flex; justify-content: space-between; color: var(--text-muted);
+}
+
+.toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 200;
+  padding: 12px 18px; border-radius: var(--radius-md);
+  background: var(--bg-card); border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg); animation: fadeIn 0.2s ease-out;
+}
 
 /* ── Grid utilities ──────────────────────────────────────────── */
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }

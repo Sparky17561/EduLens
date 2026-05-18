@@ -2,7 +2,12 @@ import { Router, Request, Response } from 'express'
 import { getDb } from '../db/database'
 import { generateId } from '../utils/codeGenerator'
 import { broadcastToSession } from '../websocket/wsServer'
-import { generateHomework, generateAnalyticsSummary, generateFallbackHomework } from '../services/aiService'
+import { generateHomework, generateFallbackHomework } from '../services/aiService'
+import { analyzeWrongAnswers } from '../services/misconceptionService'
+import { generateReteachPlan } from '../services/reteachService'
+import { aiProvider } from '../services/aiService'
+import { enqueueSync } from '../services/syncService'
+import { scoreAnswer, parseQuestionRow } from '../utils/quizScoring'
 
 const router = Router()
 
@@ -22,32 +27,39 @@ router.post('/start', (req: Request, res: Response) => {
     const quizId = generateId('quiz')
 
     const insertQ = db.prepare(`
-      INSERT INTO quiz_questions (id, session_id, quiz_id, question, options_json, correct_answer, topic, order_index)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO quiz_questions (id, session_id, quiz_id, question, options_json, correct_answer, topic, order_index, question_type, bloom_level, extra_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
 
     const insertMany = db.transaction((qs: any[]) => {
       qs.forEach((q, idx) => {
+        const qType = q.questionType || q.type || 'mcq'
+        const extra = { matchPairs: q.matchPairs, blanks: q.blanks }
         insertQ.run(
           generateId('q'),
           sessionId,
           quizId,
           q.question,
-          JSON.stringify(q.options),
+          JSON.stringify(q.options || []),
           q.correctAnswer,
           q.topic || 'General',
-          idx
+          idx,
+          qType,
+          q.bloomLevel || 'Understand',
+          JSON.stringify(extra)
         )
       })
     })
     insertMany(questions)
 
-    // Broadcast quiz start — send questions (without correct answers) to students
     const safeQuestions = questions.map((q: any, idx: number) => ({
       index: idx,
       question: q.question,
-      options: q.options,
-      topic: q.topic || 'General'
+      options: q.options || [],
+      topic: q.topic || 'General',
+      questionType: q.questionType || q.type || 'mcq',
+      matchPairs: q.matchPairs,
+      blanks: q.blanks
     }))
 
     // Save and broadcast as a chat message of type 'quiz'
@@ -117,9 +129,10 @@ router.post('/submit', async (req: Request, res: Response) => {
     const topicScores: Record<string, { correct: number; total: number }> = {}
     const wrongAnswers: Array<{ question: string; studentAnswer: string; correctAnswer: string; topic: string }> = []
 
-    questions.forEach((q, idx) => {
+    questions.forEach((rawQ, idx) => {
+      const q = parseQuestionRow(rawQ)
       const studentAnswer = answers[idx]?.answer || ''
-      const isCorrect = studentAnswer.trim().toLowerCase() === q.correct_answer.trim().toLowerCase()
+      const isCorrect = scoreAnswer(q.questionType, studentAnswer, q.correct_answer, q.extra)
 
       if (!topicScores[q.topic]) topicScores[q.topic] = { correct: 0, total: 0 }
       topicScores[q.topic].total++
@@ -159,31 +172,66 @@ router.post('/submit', async (req: Request, res: Response) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(attemptId, quizId, sessionId, studentId, studentName || 'Student', JSON.stringify(answers), score, total, percentage)
 
-    // ── Generate homework (use fast fallback initially to not block response) ──
-    const initialHomework = generateFallbackHomework(weakTopics, score, total)
-
-    // ── Save student report ───────────────────────────────────────────────────
+    // ── AI-only homework (retry once; fallback only if AI offline) ────────────
     const reportId = generateId('report')
+    let finalHomework: any = null
+    let homeworkStatus: 'ready' | 'fallback' = 'ready'
+
+    const aiAvailable = await aiProvider.isAvailable()
+    if (!aiAvailable) {
+      finalHomework = generateFallbackHomework(weakTopics, score, total)
+      homeworkStatus = 'fallback'
+    } else {
+      let lastErr: Error | null = null
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          finalHomework = await Promise.race([
+            generateHomework({
+              studentName: studentName || 'Student',
+              weakTopics,
+              wrongAnswers,
+              score,
+              total
+            }),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('Homework generation timeout')), 120_000)
+            )
+          ])
+          homeworkStatus = 'ready'
+          lastErr = null
+          break
+        } catch (e: any) {
+          lastErr = e
+          console.warn(`[quiz/submit] Homework attempt ${attempt + 1} failed:`, e.message)
+        }
+      }
+      if (!finalHomework) {
+        console.warn('[quiz/submit] AI homework failed after retries:', lastErr)
+        finalHomework = generateFallbackHomework(weakTopics, score, total)
+        homeworkStatus = 'fallback'
+      }
+    }
+
     db.prepare(`
       INSERT INTO student_reports
         (id, session_id, student_id, student_name, quiz_id, score, total, percentage,
-         weak_topics_json, strong_topics_json, topic_breakdown_json, homework_json)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         weak_topics_json, strong_topics_json, topic_breakdown_json, homework_json, homework_status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       reportId, sessionId, studentId, studentName || 'Student', quizId,
       score, total, percentage,
       JSON.stringify(weakTopics),
       JSON.stringify(strongTopics),
       JSON.stringify(topicBreakdown),
-      JSON.stringify(initialHomework)
+      JSON.stringify(finalHomework),
+      homeworkStatus
     )
 
-    // Save homework task record
     const hwId = generateId('hw')
     db.prepare(`
       INSERT INTO homework_tasks (id, student_report_id, student_id, session_id, content_json)
       VALUES (?, ?, ?, ?, ?)
-    `).run(hwId, reportId, studentId, sessionId, JSON.stringify(initialHomework))
+    `).run(hwId, reportId, studentId, sessionId, JSON.stringify(finalHomework))
 
     // ── Update analytics summary ──────────────────────────────────────────────
     updateAnalytics(db, sessionId)
@@ -204,7 +252,42 @@ router.post('/submit', async (req: Request, res: Response) => {
       }
     })
 
-    // ── Send instant HTTP response to student phone! ──────────────────────────
+    // Misconception analysis (background-friendly, non-blocking)
+    analyzeWrongAnswers({
+      sessionId,
+      studentId,
+      studentName: studentName || 'Student',
+      wrongAnswers
+    }).then(() => {
+      broadcastToSession(sessionId, { event: 'analytics_updated', sessionId, payload: { sessionId } })
+    }).catch(e => console.warn('[misconception]', e))
+
+    if (weakTopics.length) {
+      generateReteachPlan(sessionId, weakTopics[0]).catch(e => console.warn('[reteach]', e))
+    }
+
+  enqueueSync('student_progress', attemptId, sessionId, {
+      studentId, score, total, percentage, weakTopics
+    }, studentId)
+
+    broadcastToSession(sessionId, {
+      event: 'homework_ready',
+      sessionId,
+      payload: {
+        studentId,
+        studentName: studentName || 'Student',
+        homework: finalHomework,
+        homeworkStatus,
+        reportId
+      }
+    })
+
+    broadcastToSession(sessionId, {
+      event: 'analytics_updated',
+      sessionId,
+      payload: { sessionId }
+    })
+
     res.json({
       score,
       total,
@@ -212,37 +295,9 @@ router.post('/submit', async (req: Request, res: Response) => {
       weakTopics,
       strongTopics,
       topicBreakdown,
-      homework: initialHomework,
+      homework: finalHomework,
+      homeworkStatus,
       reportId
-    })
-
-    // ── Perform personalization in background (Truly Asynchronous!) ───────────
-    generateHomework({
-      studentName: studentName || 'Student',
-      weakTopics,
-      wrongAnswers,
-      score,
-      total
-    }).then(async (aiHomework) => {
-      // Save highly personalized homework in DB
-      const bgDb = getDb()
-      bgDb.prepare(`
-        UPDATE student_reports SET homework_json = ? WHERE id = ?
-      `).run(JSON.stringify(aiHomework), reportId)
-
-      bgDb.prepare(`
-        UPDATE homework_tasks SET content_json = ? WHERE student_report_id = ?
-      `).run(JSON.stringify(aiHomework), reportId)
-
-      // Broadcast the personalized homework to student & teacher
-      broadcastToSession(sessionId, {
-        event: 'homework_ready',
-        sessionId,
-        payload: { studentId, studentName: studentName || 'Student', homework: aiHomework, reportId }
-      })
-      console.log(`[AI] Background homework generated successfully for ${studentName}`)
-    }).catch(e => {
-      console.error('[AI] Background homework generation failed:', e)
     })
   } catch (err: any) {
     console.error('[quiz/submit]', err)
@@ -307,14 +362,57 @@ function updateAnalytics(db: any, sessionId: string) {
     .sort(([, a], [, b]) => b - a)
     .map(([topic]) => topic)
 
+  const strongTopics = Object.entries(topicBreakdown)
+    .filter(([, pct]) => pct >= 70)
+    .map(([topic]) => topic)
+
   db.prepare(`
     UPDATE analytics_summary SET
       avg_score = ?,
       topic_breakdown_json = ?,
       weak_students_json = ?,
+      strong_topics_json = ?,
       updated_at = datetime('now')
     WHERE session_id = ?
-  `).run(Math.round(avgScore), JSON.stringify(topicBreakdown), JSON.stringify(classWeakTopics), sessionId)
+  `).run(
+    Math.round(avgScore),
+    JSON.stringify(topicBreakdown),
+    JSON.stringify(classWeakTopics),
+    JSON.stringify(strongTopics),
+    sessionId
+  )
 }
+
+// GET /quiz/active/:sessionId — returns the latest quiz for a session (for late-joining students)
+router.get('/active/:sessionId', (req: Request, res: Response) => {
+  try {
+    const db = getDb()
+    const questions = db.prepare(
+      `SELECT * FROM quiz_questions WHERE session_id = ? ORDER BY quiz_id DESC, order_index ASC`
+    ).all(req.params.sessionId) as any[]
+
+    if (!questions.length) return res.json({ quiz: null })
+
+    const quizId = questions[0].quiz_id
+    const quizQuestions = questions
+      .filter((q: any) => q.quiz_id === quizId)
+      .map((q: any) => {
+        const extra = q.extra_json ? JSON.parse(q.extra_json) : {}
+        return {
+          index: q.order_index,
+          question: q.question,
+          options: q.options_json ? JSON.parse(q.options_json) : [],
+          topic: q.topic,
+          questionType: q.question_type || 'mcq',
+          matchPairs: extra.matchPairs,
+          blanks: extra.blanks
+        }
+      })
+
+    res.json({ quiz: { quizId, questions: quizQuestions } })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
 
 export default router

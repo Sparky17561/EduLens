@@ -1,4 +1,6 @@
-import 'dotenv/config'
+import dotenv from 'dotenv'
+import path from 'path'
+dotenv.config({ path: path.resolve(__dirname, '../../.env') })
 import express from 'express'
 import cors from 'cors'
 import { createServer } from 'http'
@@ -9,6 +11,7 @@ import chatRoutes from './routes/chat'
 import aiRoutes from './routes/ai'
 import quizRoutes from './routes/quiz'
 import reportRoutes from './routes/report'
+import syncRoutes from './routes/sync'
 
 export interface ServerOptions {
   port?: number
@@ -37,6 +40,7 @@ export function startServer(options: ServerOptions = {}) {
   app.use('/ai', aiRoutes)
   app.use('/quiz', quizRoutes)
   app.use('/report', reportRoutes)
+  app.use('/sync', syncRoutes)
 
   // Error handler
   app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

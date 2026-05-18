@@ -34,5 +34,5 @@
     "dist",
     "dist-electron"
   ],
-  "extends": "expo/tsconfig.base"
+  // "extends": "expo/tsconfig.base"
 }

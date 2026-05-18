@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useAppStore } from '../store/appStore'
-import { knowledgeApi } from '../api/client'
+import { knowledgeApi, syncApi } from '../api/client'
 
 interface KnowledgeBase {
   id: string
@@ -10,13 +10,15 @@ interface KnowledgeBase {
 }
 
 export default function Settings() {
-  const { teacher } = useAppStore()
+  const { teacher, activeSession } = useAppStore()
   const [kbs, setKbs] = useState<KnowledgeBase[]>([])
   const [file, setFile] = useState<File | null>(null)
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [status, setStatus] = useState('')
   const [fetching, setFetching] = useState(true)
+  const [fileError, setFileError] = useState('')
 
   const fetchKbs = async () => {
     if (!teacher) return
@@ -32,20 +34,44 @@ export default function Settings() {
 
   useEffect(() => { fetchKbs() }, [teacher])
 
+  const onFilePick = (f: File | null) => {
+    setFileError('')
+    if (!f) { setFile(null); return }
+    if (!f.name.toLowerCase().endsWith('.pdf')) {
+      setFileError('Only PDF files are supported')
+      setFile(null)
+      return
+    }
+    if (f.size > 25 * 1024 * 1024) {
+      setFileError('File must be under 25 MB')
+      setFile(null)
+      return
+    }
+    setFile(f)
+  }
+
   const handleUpload = async () => {
     if (!file || !name.trim() || !teacher) return
     setLoading(true)
-    setStatus('Processing PDF...')
+    setUploadProgress(5)
+    setStatus('Uploading PDF…')
+    const tick = setInterval(() => {
+      setUploadProgress(p => (p < 90 ? p + 8 : p))
+    }, 400)
     try {
       const data = await knowledgeApi.upload(teacher.id, name.trim(), file)
-      setStatus(`✅ "${name}" uploaded — ${data.chunks} chunks indexed.`)
+      setUploadProgress(100)
+      setStatus(`✅ "${name}" uploaded — ${data.chunks} chunks indexed · RAG ready.`)
       setFile(null)
       setName('')
       fetchKbs()
     } catch (e: any) {
       setStatus(`❌ Error: ${e.response?.data?.error || e.message}`)
+      setUploadProgress(0)
     }
+    clearInterval(tick)
     setLoading(false)
+    setTimeout(() => setUploadProgress(0), 1500)
   }
 
   const handleDelete = async (id: string, kbName: string) => {
@@ -86,11 +112,26 @@ export default function Settings() {
           <input
             type="file"
             accept=".pdf"
-            onChange={e => setFile(e.target.files?.[0] || null)}
+            onChange={e => onFilePick(e.target.files?.[0] || null)}
             disabled={loading}
             style={{ fontSize: 13, color: 'var(--text-primary)' }}
           />
+          {file && (
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
+              {(file.size / 1024 / 1024).toFixed(2)} MB · PDF validated
+            </p>
+          )}
+          {fileError && <p style={{ fontSize: 12, color: 'var(--danger)', marginTop: 6 }}>{fileError}</p>}
         </div>
+
+        {loading && uploadProgress > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ height: 8, background: 'var(--bg-elevated)', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{ width: `${uploadProgress}%`, height: '100%', background: 'var(--primary)', transition: 'width 0.3s' }} />
+            </div>
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{uploadProgress}% — chunking & indexing…</p>
+          </div>
+        )}
 
         <button
           className="btn btn-primary"
@@ -142,8 +183,47 @@ export default function Settings() {
         )}
       </div>
 
+      <div className="card" style={{ marginTop: 24 }}>
+        <h4 style={{ marginBottom: 12 }}>☁ Cloud Sync</h4>
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.6 }}>
+          Bundles save to <code>data/cloud/</code> locally. Set <code>SYNC_CLOUD_URL</code> in .env for remote upload.
+        </p>
+        {teacher && activeSession && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={async () => {
+                setStatus('Uploading to cloud…')
+                try {
+                  const r = await syncApi.exportBundle(activeSession.id, teacher.id)
+                  setStatus(`✅ Cloud: ${r.cloud?.remote ? 'remote OK' : 'local mirror'} · ${r.filename}`)
+                } catch (e: any) {
+                  setStatus(`❌ ${e.message}`)
+                }
+              }}
+            >
+              Push session to cloud
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={async () => {
+                setStatus('Pulling from cloud…')
+                try {
+                  const r = await syncApi.pullCloud(teacher.id, activeSession.id)
+                  setStatus(`✅ Restored ${JSON.stringify(r.restored)}`)
+                } catch (e: any) {
+                  setStatus(`❌ ${e.message}`)
+                }
+              }}
+            >
+              Pull from cloud
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Context note */}
-      <div className="card" style={{ marginTop: 24, background: 'var(--info-dim, rgba(99,102,241,0.08))', border: '1px solid rgba(99,102,241,0.25)' }}>
+      <div className="card" style={{ marginTop: 24, background: 'var(--success-dim)', border: '1px solid var(--success)' }}>
         <h4 style={{ marginBottom: 8, color: 'var(--primary)' }}>💡 How it works</h4>
         <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
           When you select a Knowledge Base while starting a session, the AI will supplement its built-in

@@ -12,7 +12,11 @@ import Homework from './pages/Homework'
 import Reports from './pages/Reports'
 import TriviaGenerator from './pages/TriviaGenerator'
 import Settings from './pages/Settings'
+import Reteach from './pages/Reteach'
 import Sidebar from './components/Sidebar'
+import BottomNav from './components/BottomNav'
+import { ToastProvider } from './components/Toast'
+import ErrorBoundary from './components/ErrorBoundary'
 
 const AnyRoute = Route as any;
 const AnyRoutes = Routes as any;
@@ -31,7 +35,10 @@ function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="app-shell">
       <Sidebar />
-      <div className="app-content">{children}</div>
+      <div className="app-content">
+        {children}
+        <BottomNav />
+      </div>
     </div>
   )
 }
@@ -58,6 +65,8 @@ export default function App() {
   }, [])
 
   return (
+    <ErrorBoundary>
+      <ToastProvider>
     <AnyBrowserRouter>
       <AnyRoutes>
         <AnyRoute path="/login" element={teacher ? <Navigate to="/" /> : <Login />} />
@@ -88,6 +97,10 @@ export default function App() {
           element={teacher ? <AppShell><Homework /></AppShell> : <Navigate to="/login" />}
         />
         <AnyRoute
+          path="/reteach"
+          element={teacher ? <AppShell><Reteach /></AppShell> : <Navigate to="/login" />}
+        />
+        <AnyRoute
           path="/reports"
           element={teacher ? <AppShell><Reports /></AppShell> : <Navigate to="/login" />}
         />
@@ -102,5 +115,7 @@ export default function App() {
         <AnyRoute path="*" element={<Navigate to={teacher ? '/' : '/login'} />} />
       </AnyRoutes>
     </AnyBrowserRouter>
+      </ToastProvider>
+    </ErrorBoundary>
   )
 }

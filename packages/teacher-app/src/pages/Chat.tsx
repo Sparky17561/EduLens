@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useAppStore } from '../store/appStore'
 import { chatApi, aiApi } from '../api/client'
+import { isSlashCommand } from '../utils/chatCommands'
+import { CommandChips } from '../components/ui'
+import { CitationBlock } from '../components/CitationBlock'
 import { useWebSocket } from '../hooks/useWebSocket'
 
 export default function Chat() {
@@ -19,25 +22,21 @@ export default function Chat() {
     const text = input.trim()
     setInput('')
 
-    // /ask command
-    if (text.startsWith('/ask ')) {
-      const question = text.slice(5)
+    if (isSlashCommand(text)) {
       setAiLoading(true)
       try {
-        await aiApi.ask(activeSession.id, teacher.id, teacher.name, question)
-      } catch (e: any) {
-        addMessage({ id: `err-${Date.now()}`, sessionId: activeSession.id, senderId: 'system', senderName: 'System', role: 'ai', content: `AI error: ${e.message}`, messageType: 'system', createdAt: new Date().toISOString() })
-      }
-      setAiLoading(false)
-      return
-    }
-
-    // /generate command
-    if (text.startsWith('/generate ')) {
-      const topic = text.slice(10)
-      setAiLoading(true)
-      try {
-        await aiApi.generate(activeSession.id, teacher.id, teacher.name, topic)
+        if (text.startsWith('/generate ')) {
+          await aiApi.generate(activeSession.id, teacher.id, teacher.name, text.slice(10))
+        } else {
+          await aiApi.command({
+            sessionId: activeSession.id,
+            senderId: teacher.id,
+            senderName: teacher.name,
+            role: 'teacher',
+            input: text,
+            sessionTopic: activeSession.topic
+          })
+        }
       } catch (e: any) {
         addMessage({ id: `err-${Date.now()}`, sessionId: activeSession.id, senderId: 'system', senderName: 'System', role: 'ai', content: `AI error: ${e.message}`, messageType: 'system', createdAt: new Date().toISOString() })
       }
@@ -67,10 +66,7 @@ export default function Chat() {
             {noSession ? 'Start a session first' : `Session ${activeSession.code} · ${messages.length} messages`}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <span className="badge badge-muted">/ask [question]</span>
-          <span className="badge badge-muted">/generate [topic]</span>
-        </div>
+        <CommandChips />
       </div>
 
       {/* Messages */}
@@ -172,6 +168,7 @@ function MessageBubble({ msg, teacherId }: { msg: any; teacherId?: string }) {
           borderRadius: isTeacher ? '16px 4px 16px 16px' : '4px 16px 16px 16px'
         }}>
           <pre style={styles.msgText}>{msg.content}</pre>
+          <CitationBlock citations={msg.citations} confidence={msg.confidence} confidenceNote={msg.confidenceNote} />
         </div>
         <div style={styles.timestamp}>{new Date(msg.createdAt).toLocaleTimeString()}</div>
       </div>

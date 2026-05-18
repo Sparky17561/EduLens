@@ -1,5 +1,5 @@
 import React from 'react'
-import { View, Text, StyleSheet, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native'
 import Svg, { Path } from 'react-native-svg'
 import { useNavigation } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -13,8 +13,21 @@ type Nav = NativeStackNavigationProp<RootStackParamList, 'Homework'>
 
 export default function HomeworkScreen() {
   const nav = useNavigation<Nav>()
-  const { quizResult } = useSessionStore()
+  const { quizResult, homeworkGenerating } = useSessionStore()
   const hw = quizResult?.homework
+
+  if (homeworkGenerating || (quizResult && !hw?.followUpQuestions?.length)) {
+    return (
+      <ScreenScaffold tint="study">
+        <ScreenHeader title="Homework" kicker="AI GENERATING" onBack={() => nav.goBack()} />
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.skyDeep} />
+          <Text style={styles.waitTitle}>Generating your homework…</Text>
+          <Text style={styles.waitDesc}>EduLens AI is personalizing tasks from your quiz results. This may take up to a minute.</Text>
+        </View>
+      </ScreenScaffold>
+    )
+  }
 
   if (!hw || !hw.followUpQuestions?.length) {
     return (

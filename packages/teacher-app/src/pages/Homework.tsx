@@ -7,9 +7,16 @@ export default function Homework() {
   const [report, setReport] = useState<any>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
 
-  useEffect(() => {
+  const load = () => {
     if (!activeSession) return
     reportApi.get(activeSession.id).then(setReport).catch(() => {})
+  }
+
+  useEffect(() => {
+    load()
+    const handler = () => load()
+    window.addEventListener('edulens:analytics_updated', handler)
+    return () => window.removeEventListener('edulens:analytics_updated', handler)
   }, [activeSession?.id])
 
   const studentReports = (report?.studentReports || []).filter((r: any) => r.homework?.followUpQuestions?.length)
@@ -22,7 +29,7 @@ export default function Homework() {
           <p>Auto-generated from quiz weak-area analysis · {studentReports.length} students with homework</p>
         </div>
         {activeSession && (
-          <button className="btn btn-ghost btn-sm" onClick={() => reportApi.get(activeSession.id).then(setReport).catch(() => {})}>
+          <button className="btn btn-ghost btn-sm" onClick={load}>
             ↻ Refresh
           </button>
         )}

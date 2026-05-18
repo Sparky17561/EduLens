@@ -7,6 +7,9 @@ export interface QuizQuestion {
   question: string
   options: string[]
   topic: string
+  questionType?: 'mcq' | 'short_answer' | 'true_false' | 'match' | 'fill_blank'
+  matchPairs?: { left: string; right: string }[]
+  blanks?: string[]
 }
 
 export interface HomeworkData {
@@ -36,6 +39,9 @@ export interface ChatMessage {
   content: string
   messageType: string
   createdAt: string
+  citations?: Array<{ label?: string; source?: string; chapter?: string; page?: number }>
+  confidence?: 'high' | 'medium' | 'low'
+  confidenceNote?: string
 }
 
 export interface QueuedMessage {
@@ -57,6 +63,7 @@ export interface SessionState {
   // Session
   session: { id: string; code: string; topic: string; host: string; port: number } | null
   setSession: (s: SessionState['session']) => void
+  clearSession: () => void
 
   // Chat
   messages: ChatMessage[]
@@ -73,11 +80,13 @@ export interface SessionState {
   quizResult: QuizResult | null
   setQuizResult: (r: QuizResult) => void
 
+  // Completed quiz IDs — NOT cleared on clearSession so rejoin doesn't re-show quiz
+  completedQuizIds: string[]
+  markQuizCompleted: (quizId: string) => void
+
   // Flashcards
   flashcards: Flashcard[]
   setFlashcards: (cards: Flashcard[]) => void
-
-
 
   // Status
   sessionEnded: boolean
@@ -86,6 +95,16 @@ export interface SessionState {
   // Pending quiz notification (show popup, don't force navigate)
   pendingQuiz: boolean
   setPendingQuiz: (v: boolean) => void
+
+  // Homework generation state
+  homeworkGenerating: boolean
+  setHomeworkGenerating: (v: boolean) => void
+
+  // Sync
+  syncPending: number
+  setSyncPending: (n: number) => void
+  ttsLanguage: string
+  setTtsLanguage: (lang: string) => void
 }
 
 export const useSessionStore = create<SessionState>()(
@@ -95,7 +114,9 @@ export const useSessionStore = create<SessionState>()(
       setStudent: (student) => set({ student }),
 
       session: null,
-      setSession: (session) => set({ session, messages: [], activeQuiz: null, quizResult: null, flashcards: [], sessionEnded: false }),
+      setSession: (session) => set({ session, messages: [], activeQuiz: null, quizResult: null, flashcards: [], sessionEnded: false, pendingQuiz: false }),
+      // clearSession keeps completedQuizIds so rejoin doesn't re-show completed quizzes
+      clearSession: () => set({ session: null, messages: [], activeQuiz: null, quizResult: null, flashcards: [], sessionEnded: false, pendingQuiz: false }),
 
       messages: [],
       addMessage: (m) => set(s => {
@@ -112,8 +133,8 @@ export const useSessionStore = create<SessionState>()(
       }),
 
       offlineQueue: [],
-      queueMessage: (content) => set(s => ({ 
-        offlineQueue: [...s.offlineQueue, { id: Date.now().toString(), content, createdAt: new Date().toISOString() }] 
+      queueMessage: (content) => set(s => ({
+        offlineQueue: [...s.offlineQueue, { id: Date.now().toString(), content, createdAt: new Date().toISOString() }]
       })),
       clearQueue: () => set({ offlineQueue: [] }),
 
@@ -123,16 +144,30 @@ export const useSessionStore = create<SessionState>()(
       quizResult: null,
       setQuizResult: (quizResult) => set({ quizResult }),
 
+      completedQuizIds: [],
+      markQuizCompleted: (quizId) => set(s => ({
+        completedQuizIds: s.completedQuizIds.includes(quizId)
+          ? s.completedQuizIds
+          : [...s.completedQuizIds, quizId]
+      })),
+
       flashcards: [],
       setFlashcards: (flashcards) => set({ flashcards }),
-
-
 
       sessionEnded: false,
       setSessionEnded: (sessionEnded) => set({ sessionEnded }),
 
       pendingQuiz: false,
       setPendingQuiz: (pendingQuiz) => set({ pendingQuiz }),
+
+      homeworkGenerating: false,
+      setHomeworkGenerating: (homeworkGenerating) => set({ homeworkGenerating }),
+
+      syncPending: 0,
+      setSyncPending: (syncPending) => set({ syncPending }),
+
+      ttsLanguage: 'en-IN',
+      setTtsLanguage: (ttsLanguage) => set({ ttsLanguage }),
     }),
     {
       name: 'edulens-session-storage',

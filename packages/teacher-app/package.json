@@ -10,8 +10,9 @@
     "build:mac": "npm run build && electron-builder --mac"
   },
   "dependencies": {
-    "edulens-backend": "*",
     "axios": "^1.6.7",
+    "edulens-backend": "*",
+    "jsqr": "^1.4.0",
     "qrcode.react": "^3.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -33,8 +34,14 @@
   "build": {
     "appId": "com.edulens.teacher",
     "productName": "EduLens Teacher",
-    "files": ["out/**/*"],
-    "win": { "target": "nsis" },
-    "mac": { "target": "dmg" }
+    "files": [
+      "out/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    }
   }
 }

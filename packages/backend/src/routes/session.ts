@@ -46,15 +46,19 @@ router.post('/start', async (req: Request, res: Response) => {
       const kb = db.prepare('SELECT * FROM knowledge_bases WHERE id = ?').get(knowledgeBaseId) as any
       if (kb) {
         clearRagContext()
-        await loadKnowledgeBase(kb.file_path, kb.name)
+        await loadKnowledgeBase(kb.file_path, kb.name, kb.id)
         kbName = kb.name
       }
     } else {
       clearRagContext() // clear previous session context
     }
 
-    // Generate flashcards in the background and broadcast when ready
+    // Generate flashcards in the background — save to DB + broadcast
     generateFlashcards(topic || 'General').then(flashcards => {
+      try {
+        getDb().prepare(`UPDATE sessions SET flashcards_json = ? WHERE id = ?`)
+          .run(JSON.stringify(flashcards), sessionId)
+      } catch {}
       broadcastToSession(sessionId, {
         event: 'flashcards_ready',
         sessionId,
@@ -172,14 +176,16 @@ router.post('/end', (req: Request, res: Response) => {
 router.get('/:id', (req: Request, res: Response) => {
   try {
     const db = getDb()
-    const session = db.prepare(`SELECT * FROM sessions WHERE id = ?`).get(req.params.id)
+    const session = db.prepare(`SELECT * FROM sessions WHERE id = ?`).get(req.params.id) as any
     if (!session) return res.status(404).json({ error: 'Session not found' })
 
     const members = db.prepare(
       `SELECT sm.*, u.name FROM session_members sm JOIN users u ON sm.student_id = u.id WHERE sm.session_id = ? AND sm.is_active = 1`
     ).all(req.params.id)
 
-    res.json({ session, members })
+    const flashcards = session.flashcards_json ? JSON.parse(session.flashcards_json) : []
+
+    res.json({ session, members, flashcards })
   } catch (err: any) {
     res.status(500).json({ error: err.message })
   }

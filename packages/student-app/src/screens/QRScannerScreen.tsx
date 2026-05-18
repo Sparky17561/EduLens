@@ -50,6 +50,13 @@ export default function QRScannerScreen() {
 
     try {
       let parseData = data
+      if (parseData.startsWith('edulens://import/')) {
+        Alert.alert('Report imported', 'Your teacher shared a session report. Join the class with the session code to view live data.')
+        scanLock.current = false
+        setScanned(false)
+        setLoading(false)
+        return
+      }
       if (parseData.startsWith('edulens://')) {
         parseData = parseData.replace('edulens://', 'http://x.x/')
       }

@@ -27,31 +27,44 @@ export function generateId(prefix?: string): string {
 export function getLocalIP(): string {
   const { networkInterfaces } = require('os')
   const nets = networkInterfaces()
+  let wifiIp: string | null = null
+  let ethernetIp: string | null = null
   let fallbackIp: string | null = null
 
   for (const name of Object.keys(nets)) {
     const lowerName = name.toLowerCase()
-    const isVirtual = lowerName.includes('virtual') || 
-                      lowerName.includes('vbox') || 
-                      lowerName.includes('virtualbox') || 
-                      lowerName.includes('vmware') || 
-                      lowerName.includes('wsl') || 
+
+    const isVirtual = lowerName.includes('virtual') ||
+                      lowerName.includes('vbox') ||
+                      lowerName.includes('virtualbox') ||
+                      lowerName.includes('vmware') ||
+                      lowerName.includes('vmnet') ||
+                      lowerName.includes('wsl') ||
                       lowerName.includes('hyper-v') ||
                       lowerName.includes('host-only') ||
                       lowerName.includes('vboxnet') ||
+                      lowerName.includes('tailscale') ||
+                      lowerName.includes('nordvpn') ||
+                      lowerName.includes('openvpn') ||
+                      lowerName.includes('wireguard') ||
+                      lowerName.includes('tun') ||
+                      lowerName.includes('tap') ||
                       /ethernet\s+\d+/.test(lowerName)
 
+    const isWifi = lowerName.includes('wi-fi') || lowerName.includes('wifi') || lowerName.includes('wlan')
+    const isEthernet = lowerName.startsWith('ethernet') && !isVirtual
+
     for (const net of nets[name]) {
-      // Skip internal (loopback) and non-IPv4 addresses
-      if (net.family === 'IPv4' && !net.internal) {
-        const isVboxSubnet = net.address.startsWith('192.168.56.')
-        if (isVirtual || isVboxSubnet) {
-          if (!fallbackIp) fallbackIp = net.address
-        } else {
-          return net.address
-        }
-      }
+      if (net.family !== 'IPv4' || net.internal) continue
+      const isVboxSubnet = net.address.startsWith('192.168.56.')
+      if (isVirtual || isVboxSubnet) continue
+
+      if (isWifi && !wifiIp) wifiIp = net.address
+      else if (isEthernet && !ethernetIp) ethernetIp = net.address
+      else if (!fallbackIp) fallbackIp = net.address
     }
   }
-  return fallbackIp || '127.0.0.1'
+
+  // Prefer WiFi → Ethernet → anything else
+  return wifiIp || ethernetIp || fallbackIp || '127.0.0.1'
 }

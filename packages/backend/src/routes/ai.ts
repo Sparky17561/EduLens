@@ -2,8 +2,15 @@ import { Router, Request, Response } from 'express'
 import { getDb } from '../db/database'
 import { generateId } from '../utils/codeGenerator'
 import { broadcastToSession } from '../websocket/wsServer'
-import { askQuestion, generateLessonOutline, generateTrivia, generateFlashcards, aiProvider, STRICT_RAG_SYSTEM } from '../services/aiService'
-import { processPdfForStorage, retrieveRelevantContext, clearRagContext, getActiveKnowledgeBaseName } from '../services/ragService'
+import { generateLessonOutline, generateTrivia, aiProvider } from '../services/aiService'
+import { generateQuizQuestions, regenerateSingleQuestion, BLOOM_LEVELS } from '../services/quizGenerationService'
+import { processPdfForStorage, clearRagContext, getActiveKnowledgeBaseName } from '../services/ragService'
+import { isEmbeddingAvailable } from '../services/embeddingService'
+import { transcribeAudioBuffer, synthesizeSpeech } from '../services/audioService'
+import { parseSlashCommand, executeChatCommand } from '../services/chatCommandService'
+import { queueSessionForSync, processSyncQueue, getSyncStatus, retryFailedSync } from '../services/syncService'
+import { getSessionMisconceptions } from '../services/misconceptionService'
+import { generateReteachFromWeakTopics, getReteachPlans, updateReteachPlan } from '../services/reteachService'
 import multer from 'multer'
 import fs from 'fs'
 import path from 'path'
@@ -16,16 +23,21 @@ if (!fs.existsSync(knowledgeDir)) fs.mkdirSync(knowledgeDir, { recursive: true }
 const uploadDir = path.join(process.cwd(), 'userData', 'uploads')
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true })
 const upload = multer({ dest: uploadDir })
+const audioUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } })
 
 const router = Router()
 
 // GET /ai/status — check provider and availability
 router.get('/status', async (_req: Request, res: Response) => {
   const available = await aiProvider.isAvailable()
+  const embeddings = await isEmbeddingAvailable()
   res.json({
     provider: aiProvider.providerName(),
     available,
-    activeKnowledgeBase: getActiveKnowledgeBaseName() || null
+    activeKnowledgeBase: getActiveKnowledgeBaseName() || null,
+    embeddings,
+    groqAudio: !!process.env.GROQ_API_KEY,
+    cloudSync: !!process.env.SYNC_CLOUD_URL
   })
 })
 
@@ -44,15 +56,13 @@ router.post('/knowledge-bases', upload.single('document'), async (req: Request, 
     const permanentPath = path.join(knowledgeDir, permanentFilename)
     fs.renameSync(req.file.path, permanentPath)
 
-    // Validate & count chunks
-    const chunkCount = await processPdfForStorage(permanentPath)
-
-    // Save to DB
     const db = getDb()
     const kbId = generateId('kb')
+    const chunkCount = await processPdfForStorage(permanentPath, kbId, name)
+
     db.prepare(`
-      INSERT INTO knowledge_bases (id, teacher_id, name, file_path, chunk_count)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO knowledge_bases (id, teacher_id, name, file_path, chunk_count, source_count)
+      VALUES (?, ?, ?, ?, ?, 1)
     `).run(kbId, teacherId, name, permanentPath, chunkCount)
 
     res.json({ success: true, id: kbId, name, chunks: chunkCount })
@@ -100,25 +110,42 @@ router.post('/clear-materials', (_req: Request, res: Response) => {
 
 // ── Sync ─────────────────────────────────────────────────────────────────────
 
-// POST /ai/sync — Manual cloud sync (mock for hackathon)
+// POST /ai/sync — Process sync queue (real reconciliation to snapshots)
 router.post('/sync', async (req: Request, res: Response) => {
+  try {
+    const { teacherId, sessionId } = req.body
+    if (!teacherId) return res.status(400).json({ error: 'teacherId required' })
+
+    if (sessionId) queueSessionForSync(sessionId, teacherId)
+    const result = await processSyncQueue(teacherId)
+    const status = getSyncStatus(teacherId)
+
+    res.json({
+      success: true,
+      ...result,
+      pending: status.pending,
+      syncedAt: new Date().toISOString()
+    })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+router.get('/sync/status', (req: Request, res: Response) => {
+  try {
+    const { teacherId } = req.query
+    res.json(getSyncStatus(teacherId as string | undefined))
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+router.post('/sync/retry', (req: Request, res: Response) => {
   try {
     const { teacherId } = req.body
     if (!teacherId) return res.status(400).json({ error: 'teacherId required' })
-
-    // Simulate network sync delay
-    await new Promise(r => setTimeout(r, 1500))
-
-    const db = getDb()
-    // Count records to simulate "what's being synced"
-    const sessions = (db.prepare(`SELECT COUNT(*) as c FROM sessions WHERE teacher_id = ?`).get(teacherId) as any).c
-    const reports = (db.prepare(`SELECT COUNT(*) as c FROM student_reports`).get() as any).c
-    const recordCount = sessions + reports
-
-    db.prepare(`INSERT INTO sync_logs (id, teacher_id, record_count, status) VALUES (?, ?, ?, 'success')`)
-      .run(generateId('sync'), teacherId, recordCount)
-
-    res.json({ success: true, recordCount, syncedAt: new Date().toISOString() })
+    const retried = retryFailedSync(teacherId)
+    res.json({ success: true, retried })
   } catch (err: any) {
     res.status(500).json({ error: err.message })
   }
@@ -126,16 +153,77 @@ router.post('/sync', async (req: Request, res: Response) => {
 
 // ── AI Endpoints ─────────────────────────────────────────────────────────────
 
-// POST /ai/ask — student asks a question (fast, RAG-grounded)
-router.post('/ask', async (req: Request, res: Response) => {
+// POST /ai/command — unified slash command handler
+router.post('/command', async (req: Request, res: Response) => {
   try {
-    const { sessionId, senderId, senderName, question } = req.body
-    if (!question) return res.status(400).json({ error: 'question required' })
+    const { sessionId, senderId, senderName, role, input, sessionTopic, previousAnswer } = req.body
+    if (!input) return res.status(400).json({ error: 'input required' })
+
+    const parsed = parseSlashCommand(input)
+    if (!parsed) return res.status(400).json({ error: 'Invalid slash command' })
 
     const db = getDb()
-    const studentMsgId = generateId('msg')
+    const userMsgId = generateId('msg')
+    const msgRole = role === 'teacher' ? 'teacher' : 'student'
 
     if (sessionId) {
+      db.prepare(`
+        INSERT INTO chat_messages (id, session_id, sender_id, sender_name, role, content, message_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(userMsgId, sessionId, senderId || 'unknown', senderName || 'User', msgRole, input, parsed.command)
+
+      broadcastToSession(sessionId, {
+        event: 'chat_message',
+        sessionId,
+        payload: {
+          id: userMsgId, sessionId, senderId, senderName, role: msgRole,
+          content: input, messageType: parsed.command, createdAt: new Date().toISOString()
+        }
+      })
+    }
+
+    if (parsed.command === 'generate') {
+      const outline = await generateLessonOutline(parsed.arg)
+      const formatted = formatLessonOutline(outline)
+      if (sessionId) persistAiMessage(db, sessionId, formatted, 'generate')
+      return res.json({ answer: formatted, command: parsed.command, outline })
+    }
+
+    const result = await executeChatCommand(parsed.command, parsed.arg, { sessionTopic, previousAnswer })
+
+    if (sessionId) {
+      persistAiMessage(db, sessionId, result.answer, parsed.command, {
+        citations: result.citations,
+        confidence: result.confidence,
+        confidenceNote: result.confidenceNote,
+        metadata: result.metadata
+      })
+    }
+
+    res.json({
+      answer: result.answer,
+      command: parsed.command,
+      confidence: result.confidence,
+      confidenceNote: result.confidenceNote,
+      citations: result.citations,
+      metadata: result.metadata
+    })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// POST /ai/ask — backward compatible (delegates to /command)
+router.post('/ask', async (req: Request, res: Response) => {
+  try {
+    const { sessionId, senderId, senderName, question, sessionTopic } = req.body
+    if (!question) return res.status(400).json({ error: 'question required' })
+
+    const result = await executeChatCommand('ask', question, { sessionTopic })
+    const db = getDb()
+
+    if (sessionId) {
+      const studentMsgId = generateId('msg')
       db.prepare(`
         INSERT INTO chat_messages (id, session_id, sender_id, sender_name, role, content, message_type)
         VALUES (?, ?, ?, ?, 'student', ?, 'ask')
@@ -145,69 +233,103 @@ router.post('/ask', async (req: Request, res: Response) => {
         event: 'chat_message',
         sessionId,
         payload: {
-          id: studentMsgId,
-          sessionId,
-          senderId: senderId || 'unknown',
-          senderName: senderName || 'Student',
-          role: 'student',
-          content: `/ask ${question}`,
-          messageType: 'ask',
-          createdAt: new Date().toISOString()
+          id: studentMsgId, sessionId, senderId, senderName, role: 'student',
+          content: `/ask ${question}`, messageType: 'ask', createdAt: new Date().toISOString()
         }
+      })
+      persistAiMessage(db, sessionId, result.answer, 'ask', {
+        citations: result.citations,
+        confidence: result.confidence,
+        confidenceNote: result.confidenceNote,
+        triggerStudent: senderName
       })
     }
 
-    // Augment question with RAG context if a knowledge base is loaded
-    const ragContext = retrieveRelevantContext(question)
-    let answer: string
+    res.json({
+      answer: result.answer,
+      confidence: result.confidence,
+      confidenceNote: result.confidenceNote,
+      citations: result.citations
+    })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
 
-    // Use fastAsk if available (Ollama local) for speed — 45s cap, 512 tokens
-    const provider = aiProvider as any
-    if (provider.fastAsk) {
-      let prompt: string
-      if (ragContext) {
-        prompt = `You are EduLens, a helpful NCERT school tutor. Answer ONLY using the provided context.\n\nContext:\n${ragContext}\n\nStudent Question: ${question}\n\nAnswer (2-4 sentences, simple language):`
-      } else {
-        prompt = `You are EduLens, a patient NCERT school tutor for Class 6-10 students in India.\n\nStudent Question: ${question}\n\nAnswer (2-4 sentences, simple language, one real-world example if helpful):`
-      }
-      answer = await provider.fastAsk(prompt, 384)
-    } else {
-      if (ragContext) {
-        const augmented = `Context:\n${ragContext}\n\nStudent Question: ${question}`
-        answer = await askQuestion(augmented, STRICT_RAG_SYSTEM, 0.1)
-      } else {
-        answer = await askQuestion(question)
-      }
+function persistAiMessage(
+  db: ReturnType<typeof getDb>,
+  sessionId: string,
+  content: string,
+  messageType: string,
+  meta?: {
+    citations?: unknown[]
+    confidence?: string
+    confidenceNote?: string
+    metadata?: Record<string, unknown>
+    triggerStudent?: string
+  }
+) {
+  const aiMsgId = generateId('msg')
+  const metaJson = JSON.stringify({
+    citations: meta?.citations,
+    confidence: meta?.confidence,
+    confidenceNote: meta?.confidenceNote,
+    metadata: meta?.metadata
+  })
+  try {
+    db.prepare(`
+      INSERT INTO chat_messages (id, session_id, sender_id, sender_name, role, content, message_type, meta_json)
+      VALUES (?, ?, 'ai', 'EduLens AI', 'ai', ?, ?, ?)
+    `).run(aiMsgId, sessionId, content, messageType, metaJson)
+  } catch {
+    db.prepare(`
+      INSERT INTO chat_messages (id, session_id, sender_id, sender_name, role, content, message_type)
+      VALUES (?, ?, 'ai', 'EduLens AI', 'ai', ?, ?)
+    `).run(aiMsgId, sessionId, content, messageType)
+  }
+
+  broadcastToSession(sessionId, {
+    event: 'chat_message',
+    sessionId,
+    payload: {
+      id: aiMsgId, sessionId, senderId: 'ai', senderName: 'EduLens AI',
+      role: 'ai', content, messageType,
+      citations: meta?.citations,
+      confidence: meta?.confidence,
+      confidenceNote: meta?.confidenceNote,
+      metadata: meta?.metadata,
+      triggerStudent: meta?.triggerStudent,
+      createdAt: new Date().toISOString()
     }
+  })
+}
 
-    // Strip any "Answer:" prefix that small models sometimes prepend
-    answer = answer.replace(/^(Answer:|Response:)\s*/i, '').trim()
+// GET /ai/misconceptions/:sessionId
+router.get('/misconceptions/:sessionId', (req: Request, res: Response) => {
+  res.json({ misconceptions: getSessionMisconceptions(req.params.sessionId) })
+})
 
-    if (sessionId) {
-      const aiMsgId = generateId('msg')
-      db.prepare(`
-        INSERT INTO chat_messages (id, session_id, sender_id, sender_name, role, content, message_type)
-        VALUES (?, ?, 'ai', 'EduLens AI', 'ai', ?, 'ask')
-      `).run(aiMsgId, sessionId, answer)
+// POST /ai/reteach — generate reteach plans from weak topics
+router.post('/reteach', async (req: Request, res: Response) => {
+  try {
+    const { sessionId, weakTopics } = req.body
+    if (!sessionId || !weakTopics?.length) return res.status(400).json({ error: 'sessionId and weakTopics required' })
+    const plans = await generateReteachFromWeakTopics(sessionId, weakTopics)
+    res.json({ plans })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
 
-      broadcastToSession(sessionId, {
-        event: 'chat_message',
-        sessionId,
-        payload: {
-          id: aiMsgId,
-          sessionId,
-          senderId: 'ai',
-          senderName: 'EduLens AI',
-          role: 'ai',
-          content: answer,
-          messageType: 'ask',
-          triggerStudent: senderName,
-          createdAt: new Date().toISOString()
-        }
-      })
-    }
+router.get('/reteach/:sessionId', (req: Request, res: Response) => {
+  res.json({ plans: getReteachPlans(req.params.sessionId) })
+})
 
-    res.json({ answer })
+router.patch('/reteach/:id', (req: Request, res: Response) => {
+  try {
+    const plan = updateReteachPlan(req.params.id, req.body)
+    if (!plan) return res.status(404).json({ error: 'Not found' })
+    res.json({ plan })
   } catch (err: any) {
     res.status(500).json({ error: err.message })
   }
@@ -216,14 +338,115 @@ router.post('/ask', async (req: Request, res: Response) => {
 // POST /ai/generate-trivia-preview — generate trivia for teacher to preview/edit (no broadcast)
 router.post('/generate-trivia-preview', async (req: Request, res: Response) => {
   try {
-    const { topic, difficulty } = req.body
+    const { topic, difficulty, bloomLevel, questionCount, questionTypes } = req.body
     if (!topic) return res.status(400).json({ error: 'topic required' })
-    const trivia = await generateTrivia(topic, difficulty || 'Medium')
-    res.json({ trivia })
+    const trivia = await generateQuizQuestions({
+      topic,
+      difficulty: difficulty || 'Medium',
+      bloomLevel: bloomLevel || 'Understand',
+      count: questionCount || 5,
+      questionTypes
+    })
+    res.json({ trivia, bloomLevels: BLOOM_LEVELS })
   } catch (err: any) {
     console.error('[generate-trivia-preview]', err)
     res.status(500).json({ error: err.message })
   }
+})
+
+router.post('/regenerate-question', async (req: Request, res: Response) => {
+  try {
+    const { topic, questionType, bloomLevel, existingQuestion } = req.body
+    if (!topic) return res.status(400).json({ error: 'topic required' })
+    const question = await regenerateSingleQuestion({ topic, questionType, bloomLevel, existingQuestion })
+    res.json({ question })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+router.post('/transcribe', audioUpload.single('audio'), async (req: Request, res: Response) => {
+  try {
+    const language = (req.body.language as string) || 'en-US'
+
+    if (req.file?.buffer) {
+      const { text, source } = await transcribeAudioBuffer(
+        req.file.buffer,
+        req.file.mimetype || 'audio/webm',
+        language
+      )
+      if (text) {
+        return res.json({ text, source, language })
+      }
+      return res.status(503).json({
+        error: 'Speech recognition unavailable. Set GROQ_API_KEY for Whisper, or use textHint.',
+        language
+      })
+    }
+
+    const { textHint } = req.body
+    if (textHint) {
+      return res.json({ text: String(textHint).trim(), source: 'client', language })
+    }
+
+    res.status(400).json({
+      error: 'Send audio file (multipart field "audio") or textHint in body',
+      language
+    })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// POST /ai/speak — neural TTS (Edge) returns base64 MP3
+router.post('/speak', async (req: Request, res: Response) => {
+  try {
+    const { text, language = 'en-US' } = req.body
+    if (!text) return res.status(400).json({ error: 'text required' })
+    const audio = await synthesizeSpeech(String(text), language)
+    if (!audio) {
+      return res.status(503).json({ error: 'TTS unavailable on server; use device narrate', fallback: 'client' })
+    }
+    res.json(audio)
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// POST /ai/voice-ask — audio in → transcribe → /ask → optional TTS out
+router.post('/voice-ask', audioUpload.single('audio'), async (req: Request, res: Response) => {
+  try {
+    const language = (req.body.language as string) || 'hi-IN'
+    const sessionTopic = req.body.sessionTopic as string | undefined
+    let question = (req.body.question as string) || ''
+
+    if (req.file?.buffer) {
+      const stt = await transcribeAudioBuffer(req.file.buffer, req.file.mimetype || 'audio/webm', language)
+      question = stt.text
+    } else if (req.body.audioBase64) {
+      const buf = Buffer.from(String(req.body.audioBase64), 'base64')
+      const stt = await transcribeAudioBuffer(buf, req.body.audioMime || 'audio/m4a', language)
+      question = stt.text
+    }
+    if (!question.trim()) {
+      return res.status(400).json({ error: 'No speech detected. Try again or type your question.' })
+    }
+
+    const result = await executeChatCommand('ask', question, { sessionTopic })
+    const tts = await synthesizeSpeech(result.answer.replace(/⚠️|ℹ️/g, ''), language)
+
+    res.json({
+      question,
+      ...result,
+      audio: tts
+    })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+router.get('/bloom-levels', (_req: Request, res: Response) => {
+  res.json({ levels: BLOOM_LEVELS })
 })
 
 // POST /ai/generate — teacher generates lesson outline

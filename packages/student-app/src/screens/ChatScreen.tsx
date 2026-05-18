@@ -6,8 +6,14 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootStackParamList } from '../navigation/AppNavigator'
 import { useSessionStore } from '../store/sessionStore'
 import { chatApi, aiApi } from '../api/client'
+
+const SLASH_CMDS = ['ask','generate','hint','cite','summarize','diagnose','rephrase','explain','flashcards','quizme','teachme','examples','define','compare','practice']
+function isCmd(t: string) { return t.startsWith('/') && SLASH_CMDS.includes(t.slice(1).split(/\s/)[0]?.toLowerCase() || '') }
 import * as Speech from 'expo-speech'
+import { Audio } from 'expo-av'
 import { ScreenScaffold, OfflineBadge } from '../components/ui'
+import VoiceInput from '../components/VoiceInput'
+import { CitationBlock } from '../components/CitationBlock'
 import { ScreenHeader } from '../components/widgets'
 import { colors, type, spacing, radius, shadow } from '../theme/tokens'
 
@@ -15,7 +21,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList, 'Chat'>
 
 export default function ChatScreen() {
   const nav = useNavigation<Nav>()
-  const { student, session, messages, addMessage, setActiveQuiz, sessionEnded, offlineQueue, queueMessage, clearQueue } = useSessionStore()
+  const { student, session, messages, addMessage, setActiveQuiz, sessionEnded, offlineQueue, queueMessage, clearQueue, ttsLanguage, setTtsLanguage, pendingQuiz, setPendingQuiz } = useSessionStore()
   const [input, setInput] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [speakingId, setSpeakingId] = useState<string | null>(null)
@@ -29,7 +35,7 @@ export default function ChatScreen() {
       Speech.stop()
       setSpeakingId(msgId)
       Speech.speak(text, {
-        language: 'en-IN',
+        language: ttsLanguage,
         pitch: 1.0,
         rate: 0.85,
         onDone: () => setSpeakingId(null),
@@ -51,9 +57,10 @@ export default function ChatScreen() {
       const queue = [...offlineQueue]
       clearQueue()
       queue.forEach(q => {
-        if (q.content.startsWith('/ask ')) {
-          const question = q.content.slice(5)
-          aiApi.ask(session.id, student.id, student.name, question).catch(e => console.warn(e))
+        if (isCmd(q.content)) {
+          aiApi.command({ sessionId: session.id, senderId: student.id, senderName: student.name, role: 'student', input: q.content, sessionTopic: session.topic }).catch(e => console.warn(e))
+        } else if (q.content.startsWith('/ask ')) {
+          aiApi.ask(session.id, student.id, student.name, q.content.slice(5), session.topic).catch(e => console.warn(e))
         } else {
           chatApi.send(session.id, student.id, student.name, q.content).catch(e => console.warn(e))
         }
@@ -106,15 +113,72 @@ export default function ChatScreen() {
       return
     }
 
+    if (isCmd(text)) {
+      setAiLoading(true)
+      aiApi.command({ sessionId: session.id, senderId: student.id, senderName: student.name, role: 'student', input: text, sessionTopic: session.topic }).catch(e => console.warn('[AI]', e))
+      return
+    }
+
     if (text.startsWith('/ask ')) {
       setAiLoading(true)
-      aiApi.ask(session.id, student.id, student.name, text.slice(5)).catch(e => {
-        console.warn('[AI] POST failed:', e)
-      })
+      aiApi.ask(session.id, student.id, student.name, text.slice(5), session.topic).catch(e => console.warn('[AI]', e))
       return
     }
 
     try { await chatApi.send(session.id, student.id, student.name, text) } catch {}
+  }
+
+  const playServerTts = async (audioBase64: string) => {
+    try {
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: `data:audio/mpeg;base64,${audioBase64}` },
+        { shouldPlay: true }
+      )
+      sound.setOnPlaybackStatusUpdate(st => {
+        if (st.isLoaded && st.didJustFinish) sound.unloadAsync()
+      })
+    } catch {
+      /* fallback handled by caller */
+    }
+  }
+
+  const handleVoiceResponse = async (data: {
+    question: string
+    answer: string
+    audioBase64?: string
+    citations?: unknown[]
+    confidence?: string
+  }) => {
+    if (!student) return
+    setAiLoading(false)
+    const now = new Date().toISOString()
+    addMessage({
+      id: `voice-q-${Date.now()}`,
+      senderId: student.id,
+      senderName: student.name,
+      role: 'student',
+      content: data.question,
+      messageType: 'ask',
+      createdAt: now
+    })
+    addMessage({
+      id: `voice-a-${Date.now()}`,
+      senderId: 'ai',
+      senderName: 'EduLens AI',
+      role: 'ai',
+      content: data.answer,
+      messageType: 'ask',
+      citations: data.citations as any,
+      ...(data.confidence === 'high' || data.confidence === 'medium' || data.confidence === 'low'
+        ? { confidence: data.confidence }
+        : {}),
+      createdAt: now
+    })
+    if (data.audioBase64) {
+      await playServerTts(data.audioBase64)
+    } else {
+      Speech.speak(data.answer, { language: ttsLanguage, rate: 0.85 })
+    }
   }
 
   return (
@@ -124,6 +188,17 @@ export default function ChatScreen() {
         kicker="ASK QUESTIONS & SYNC LIVE"
         onBack={() => nav.goBack()}
       />
+
+      {/* Quiz pending banner */}
+      {pendingQuiz && (
+        <Pressable
+          onPress={() => { setPendingQuiz(false); nav.navigate('Quiz') }}
+          style={styles.quizBanner}
+        >
+          <Text style={styles.quizBannerText}>🎯 Quiz is ready! Tap here to start</Text>
+          <Text style={styles.quizBannerSub}>Your teacher launched a quiz</Text>
+        </Pressable>
+      )}
 
       <View style={{ flex: 1 }}>
         <FlatList
@@ -190,6 +265,13 @@ export default function ChatScreen() {
                     <Text style={[styles.bubbleText, isMine && { color: colors.white }]}>
                       {msg.content}
                     </Text>
+                    {isAI && (
+                      <CitationBlock
+                        citations={msg.citations}
+                        confidence={msg.confidence}
+                        confidenceNote={msg.confidenceNote}
+                      />
+                    )}
                   </View>
                   {isAI && (
                     <Pressable 
@@ -230,12 +312,31 @@ export default function ChatScreen() {
         />
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={styles.langRow}>
+            {(['en-US', 'hi-IN'] as const).map(lang => (
+              <Pressable
+                key={lang}
+                onPress={() => setTtsLanguage(lang)}
+                style={[styles.langChip, ttsLanguage === lang && styles.langChipActive]}
+              >
+                <Text style={[styles.langChipText, ttsLanguage === lang && styles.langChipTextActive]}>
+                  {lang === 'en-US' ? 'EN' : 'HI'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
           <View style={styles.inputRow}>
+            <VoiceInput
+              onText={t => setInput(prev => (prev ? prev + ' ' : '') + t)}
+              onVoiceResponse={handleVoiceResponse}
+              sessionTopic={session?.topic}
+              language={ttsLanguage}
+            />
             <TextInput
               style={styles.input}
               value={input}
               onChangeText={setInput}
-              placeholder="Ask Gemma (e.g. /ask explain...) or message..."
+              placeholder="Try /ask /hint /cite /flashcards or message class..."
               placeholderTextColor={colors.inkFaint}
               multiline
               onSubmitEditing={send}
@@ -263,6 +364,13 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
+  quizBanner: {
+    backgroundColor: colors.coralWash,
+    borderBottomWidth: 1, borderBottomColor: colors.coral,
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
+  },
+  quizBannerText: { ...type.bodyBold, color: colors.coralDeep },
+  quizBannerSub: { ...type.small, color: colors.coralDeep, opacity: 0.8 },
   list: {
     padding: spacing.md,
     gap: spacing.sm,
@@ -360,6 +468,26 @@ const styles = StyleSheet.create({
     ...type.smallBold,
     color: colors.inkSoft,
   },
+  langRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.xs,
+    backgroundColor: colors.card,
+  },
+  langChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  langChipActive: {
+    backgroundColor: colors.skyWash,
+    borderColor: colors.sky,
+  },
+  langChipText: { ...type.caption, color: colors.inkSoft },
+  langChipTextActive: { color: colors.skyDeep, fontWeight: '700' },
   inputRow: {
     flexDirection: 'row',
     gap: spacing.xs,
