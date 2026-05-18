@@ -1,5 +1,5 @@
 import React from 'react'
-import { View, Text, StyleSheet, Pressable, ScrollView, Modal } from 'react-native'
+import { View, Text, StyleSheet, Pressable, ScrollView, Modal, Image } from 'react-native'
 import Svg, { Path, Circle } from 'react-native-svg'
 import { useNavigation } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -11,13 +11,16 @@ import Illustration from '../components/Illustration'
 import { colors, type, spacing, radius, shadow } from '../theme/tokens'
 import { syncApi, quizApi, sessionApi } from '../api/client'
 import { useProfileStore } from '../store/profileStore'
+import { getAvatarSource, getAvatarTint } from '../theme/avatars'
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Lobby'>
 
 export default function LobbyScreen() {
   const nav = useNavigation<Nav>()
   const { student, session, sessionEnded, quizResult, pendingQuiz, setPendingQuiz, activeQuiz, setActiveQuiz, setFlashcards, flashcards, offlineQueue, clearQueue, setSyncPending, completedQuizIds } = useSessionStore()
-  const { addSessionRecord } = useProfileStore()
+  const { addSessionRecord, getActiveProfile } = useProfileStore()
+  const profile = getActiveProfile()
+  const avatarSource = getAvatarSource(profile?.avatar)
   const [syncing, setSyncing] = React.useState(false)
   const [syncMsg, setSyncMsg] = React.useState('')
   const joinTimeRef = React.useRef(Date.now())
@@ -169,15 +172,19 @@ export default function LobbyScreen() {
 
         {/* Student Avatar Card */}
         <View style={styles.profileCard}>
-          <View style={styles.avatarCircle}>
-            <Svg width={20} height={20} viewBox="0 0 24 24">
-              <Circle cx="12" cy="8" r="3.5" stroke={colors.skyDeep} strokeWidth="2.2" fill="none" />
-              <Path d="M5 20 Q5 13 12 13 Q19 13 19 20"
-                    stroke={colors.skyDeep} strokeWidth="2.2" fill="none" strokeLinecap="round" />
-            </Svg>
+          <View style={[styles.avatarCircle, { backgroundColor: getAvatarTint(profile?.avatar) + '22' }]}>
+            {avatarSource ? (
+              <Image source={avatarSource} style={styles.avatarImg} resizeMode="cover" />
+            ) : (
+              <Svg width={20} height={20} viewBox="0 0 24 24">
+                <Circle cx="12" cy="8" r="3.5" stroke={colors.skyDeep} strokeWidth="2.2" fill="none" />
+                <Path d="M5 20 Q5 13 12 13 Q19 13 19 20"
+                      stroke={colors.skyDeep} strokeWidth="2.2" fill="none" strokeLinecap="round" />
+              </Svg>
+            )}
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.profileName}>{student?.name || 'Happy Student'}</Text>
+            <Text style={styles.profileName}>{profile?.name || student?.name || 'Happy Student'}</Text>
             <Text style={styles.profileSub}>Student Participant</Text>
           </View>
         </View>
@@ -416,7 +423,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.skyWash,
     alignItems: 'center', justifyContent: 'center',
     marginRight: spacing.sm,
+    overflow: 'hidden',
   },
+  avatarImg: { width: '100%', height: '100%' },
   profileName: { ...type.bodyBold, color: colors.ink, fontWeight: '700' },
   profileSub: { ...type.small, color: colors.inkFaint },
   waitCard: {

@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react'
-import { View, Text, StyleSheet, Pressable, Animated } from 'react-native'
+import { View, Text, StyleSheet, Pressable, Animated, Image } from 'react-native'
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootStackParamList } from '../navigation/AppNavigator'
 import { useProfileStore, Profile } from '../store/profileStore'
 import { useSessionStore } from '../store/sessionStore'
 import { colors, type, spacing, radius } from '../theme/tokens'
+import { getAvatarSource, getAvatarTint } from '../theme/avatars'
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'PinUnlock'>
 type Route = RouteProp<RootStackParamList, 'PinUnlock'>
@@ -105,7 +106,11 @@ export default function PinUnlockScreen() {
       </Pressable>
 
       <View style={styles.top}>
-        <Text style={styles.avatar}>{profile?.avatar || '🧒'}</Text>
+        <View style={[styles.avatarWrap, { backgroundColor: getAvatarTint(profile?.avatar) + '22' }]}>
+          {getAvatarSource(profile?.avatar)
+            ? <Image source={getAvatarSource(profile?.avatar)!} style={styles.avatarImg} resizeMode="cover" />
+            : <Text style={styles.avatar}>{profile?.avatar || '🧒'}</Text>}
+        </View>
         <Text style={[styles.title, error ? styles.titleError : null]}>{title}</Text>
         <Text style={styles.subtitle}>{subtitle}</Text>
       </View>
@@ -141,7 +146,14 @@ const styles = StyleSheet.create({
   backBtn: { marginTop: 52, marginBottom: 8 },
   backText: { ...type.bodyBold, color: colors.coral },
   top: { alignItems: 'center', marginTop: 24, marginBottom: 32 },
-  avatar: { fontSize: 64, marginBottom: 16 },
+  avatar: { fontSize: 64 },
+  avatarWrap: {
+    width: 96, height: 96, borderRadius: 48,
+    alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  avatarImg: { width: '100%', height: '100%' },
   title: { fontFamily: type.hero?.fontFamily, fontSize: 22, fontWeight: '800', color: colors.ink, textAlign: 'center', marginBottom: 8 },
   titleError: { color: '#E53E3E' },
   subtitle: { ...type.body, color: colors.inkSoft, textAlign: 'center' },

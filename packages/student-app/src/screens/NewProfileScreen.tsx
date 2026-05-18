@@ -1,14 +1,14 @@
 import React, { useState } from 'react'
-import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Alert } from 'react-native'
+import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Alert, Image } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootStackParamList } from '../navigation/AppNavigator'
 import { useProfileStore } from '../store/profileStore'
 import { colors, type, spacing, radius, shadow } from '../theme/tokens'
+import { AVATAR_OPTIONS, DEFAULT_AVATAR, getAvatarSource, getAvatarTint } from '../theme/avatars'
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'NewProfile'>
 
-const AVATARS = ['🧒','👦','👧','🧑','👨','👩','🧔','👱','🧓','🦸','🧙','🦊','🐼','🐯','🦁','🐸']
 const GRADES = ['6', '7', '8', '9', '10']
 const LANGS  = ['English', 'हिंदी', 'தமிழ்', 'বাংলা', 'Kiswahili']
 
@@ -16,7 +16,7 @@ export default function NewProfileScreen() {
   const nav = useNavigation<Nav>()
   const { addProfile } = useProfileStore()
   const [name, setName] = useState('')
-  const [avatar, setAvatar] = useState('🧒')
+  const [avatar, setAvatar] = useState<string>(DEFAULT_AVATAR)
   const [grade, setGrade] = useState('7')
   const [lang, setLang] = useState('English')
 
@@ -44,7 +44,11 @@ export default function NewProfileScreen() {
 
       {/* Live preview */}
       <View style={styles.preview}>
-        <Text style={styles.previewAvatar}>{avatar}</Text>
+        <View style={[styles.previewAvatarWrap, { backgroundColor: getAvatarTint(avatar) + '22' }]}>
+          {getAvatarSource(avatar)
+            ? <Image source={getAvatarSource(avatar)!} style={styles.previewAvatarImg} resizeMode="cover" />
+            : <Text style={styles.previewAvatarEmoji}>{avatar}</Text>}
+        </View>
         <Text style={styles.previewName}>{name || 'Your Name'}</Text>
         <Text style={styles.previewGrade}>Class {grade} · {lang}</Text>
       </View>
@@ -66,13 +70,17 @@ export default function NewProfileScreen() {
       <View style={styles.fieldCard}>
         <Text style={styles.fieldLabel}>PICK YOUR AVATAR</Text>
         <View style={styles.avatarGrid}>
-          {AVATARS.map(a => (
+          {AVATAR_OPTIONS.map(opt => (
             <Pressable
-              key={a}
-              onPress={() => setAvatar(a)}
-              style={[styles.avatarBtn, avatar === a && styles.avatarBtnActive]}
+              key={opt.id}
+              onPress={() => setAvatar(opt.id)}
+              style={[
+                styles.avatarBtn,
+                { backgroundColor: opt.color + '1A' },
+                avatar === opt.id && [styles.avatarBtnActive, { borderColor: opt.color }],
+              ]}
             >
-              <Text style={styles.avatarEmoji}>{a}</Text>
+              <Image source={opt.source} style={styles.avatarImg} resizeMode="cover" />
             </Pressable>
           ))}
         </View>
@@ -137,7 +145,14 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.md,
   },
-  previewAvatar: { fontSize: 52, marginBottom: 8 },
+  previewAvatarWrap: {
+    width: 84, height: 84, borderRadius: 42,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  previewAvatarImg: { width: '100%', height: '100%' },
+  previewAvatarEmoji: { fontSize: 48 },
   previewName: { ...type.subhead, fontWeight: '700', color: colors.ink },
   previewGrade: { ...type.small, color: colors.inkSoft, marginTop: 4 },
   fieldCard: {
@@ -154,15 +169,15 @@ const styles = StyleSheet.create({
     padding: 10, backgroundColor: colors.paper,
     borderRadius: radius.md, borderWidth: 1, borderColor: colors.line,
   },
-  avatarGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  avatarGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   avatarBtn: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 60, height: 60, borderRadius: 30,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.paper,
+    overflow: 'hidden',
     borderWidth: 2, borderColor: 'transparent',
   },
-  avatarBtnActive: { borderColor: colors.coral, backgroundColor: '#FFF3EE' },
-  avatarEmoji: { fontSize: 24 },
+  avatarBtnActive: { borderColor: colors.coral },
+  avatarImg: { width: '100%', height: '100%' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
     paddingVertical: 6, paddingHorizontal: 14,

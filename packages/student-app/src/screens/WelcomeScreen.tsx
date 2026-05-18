@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native'
+import { View, Text, Pressable, StyleSheet, ScrollView, Image } from 'react-native'
 import Svg, { Path, Circle } from 'react-native-svg'
 import { useNavigation } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -10,6 +10,7 @@ import { ScreenScaffold, OfflineBadge, Chip } from '../components/ui'
 import { ScreenHeader } from '../components/widgets'
 import Illustration from '../components/Illustration'
 import { colors, type, spacing, radius, shadow } from '../theme/tokens'
+import { getAvatarSource, getAvatarTint } from '../theme/avatars'
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Welcome'>
 
@@ -78,7 +79,11 @@ export default function WelcomeScreen() {
         {/* Profile greeting */}
         {profile && (
           <Pressable style={styles.profileBadge} onPress={handleSwitch}>
-            <Text style={styles.profileAvatar}>{profile.avatar}</Text>
+            <View style={[styles.profileAvatarWrap, { backgroundColor: getAvatarTint(profile.avatar) + '22' }]}>
+              {getAvatarSource(profile.avatar)
+                ? <Image source={getAvatarSource(profile.avatar)!} style={styles.profileAvatarImg} resizeMode="cover" />
+                : <Text style={styles.profileAvatar}>{profile.avatar}</Text>}
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.profileName}>{profile.name}</Text>
               <Text style={styles.profileSub}>Class {profile.grade} · Tap to switch</Text>
@@ -184,7 +189,14 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: colors.line,
     ...shadow.soft,
   },
-  profileAvatar: { fontSize: 32, marginRight: 12 },
+  profileAvatar: { fontSize: 32 },
+  profileAvatarWrap: {
+    width: 48, height: 48, borderRadius: 24,
+    alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',
+    marginRight: 12,
+  },
+  profileAvatarImg: { width: '100%', height: '100%' },
   profileName: { ...type.subhead, color: colors.ink, fontWeight: '700' },
   profileSub: { ...type.small, color: colors.inkSoft },
   switchArrow: { fontSize: 18, color: colors.coral, paddingLeft: 8 },

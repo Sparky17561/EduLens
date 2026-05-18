@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Image } from 'react-native'
 import Svg, { Path, Circle, Rect } from 'react-native-svg'
 import { useNavigation } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -9,6 +9,7 @@ import { useProfileStore } from '../../store/profileStore'
 import { ScreenScaffold, Chip, PrimaryButton } from '../../components/ui'
 import { ScreenHeader } from '../../components/widgets'
 import { colors, type, spacing, radius, shadow } from '../../theme/tokens'
+import { getAvatarSource, getAvatarTint } from '../../theme/avatars'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
@@ -73,7 +74,11 @@ export default function ProfileTab() {
         {/* Profile Hero */}
         {profile ? (
           <View style={styles.heroCard}>
-            <Text style={styles.heroAvatar}>{profile.avatar}</Text>
+            <View style={[styles.heroAvatarWrap, { backgroundColor: getAvatarTint(profile.avatar) + '22' }]}>
+              {getAvatarSource(profile.avatar)
+                ? <Image source={getAvatarSource(profile.avatar)!} style={styles.heroAvatarImg} resizeMode="cover" />
+                : <Text style={styles.heroAvatar}>{profile.avatar}</Text>}
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.heroName}>{profile.name}</Text>
               <Text style={styles.heroSub}>Class {profile.grade} · {lang}</Text>
@@ -205,7 +210,14 @@ const styles = StyleSheet.create({
     padding: spacing.md, marginBottom: spacing.sm,
     ...shadow.soft, borderWidth: 1, borderColor: colors.line,
   },
-  heroAvatar: { fontSize: 44, marginRight: spacing.md },
+  heroAvatar: { fontSize: 44 },
+  heroAvatarWrap: {
+    width: 64, height: 64, borderRadius: 32,
+    alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',
+    marginRight: spacing.md,
+  },
+  heroAvatarImg: { width: '100%', height: '100%' },
   heroName: { ...type.subhead, color: colors.ink, fontWeight: '700', fontSize: 18 },
   heroSub: { ...type.small, color: colors.inkSoft, marginTop: 2 },
   heroBadge: {

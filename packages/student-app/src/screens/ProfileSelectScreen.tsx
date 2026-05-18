@@ -1,10 +1,11 @@
 import React from 'react'
-import { View, Text, StyleSheet, FlatList, Pressable, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, FlatList, Pressable, ScrollView, Image } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootStackParamList } from '../navigation/AppNavigator'
 import { useProfileStore, Profile } from '../store/profileStore'
 import { colors, type, spacing, radius, shadow } from '../theme/tokens'
+import { getAvatarSource, getAvatarTint } from '../theme/avatars'
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'ProfileSelect'>
 
@@ -36,8 +37,10 @@ export default function ProfileSelectScreen() {
             style={({ pressed }) => [styles.card, { transform: [{ scale: pressed ? 0.97 : 1 }] }]}
             onPress={() => handleSelect(profile)}
           >
-            <View style={styles.avatarWrap}>
-              <Text style={styles.avatar}>{profile.avatar}</Text>
+            <View style={[styles.avatarWrap, { backgroundColor: getAvatarTint(profile.avatar) + '22' }]}>
+              {getAvatarSource(profile.avatar)
+                ? <Image source={getAvatarSource(profile.avatar)!} style={styles.avatarImg} resizeMode="cover" />
+                : <Text style={styles.avatar}>{profile.avatar}</Text>}
             </View>
             <Text style={styles.name} numberOfLines={1}>{profile.name}</Text>
             <View style={styles.gradeBadge}>
@@ -107,9 +110,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF3EE',
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 10,
+    overflow: 'hidden',
   },
   newAvatarWrap: { backgroundColor: '#FFE8DC' },
   avatar: { fontSize: 34 },
+  avatarImg: { width: '100%', height: '100%' },
   plusIcon: { fontSize: 28, color: colors.coral, fontWeight: '300' },
   name: { ...type.subhead, color: colors.ink, textAlign: 'center', marginBottom: 6 },
   gradeBadge: {
