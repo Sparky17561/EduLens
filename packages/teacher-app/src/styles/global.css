@@ -496,3 +496,78 @@ code, pre { font-family: 'JetBrains Mono', monospace; font-size: 13px; }
 /* ── Form group ──────────────────────────────────────────────── */
 .form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-label { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+
+/* ── Student-app design tokens (kicker labels, headlines) ────── */
+.kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--accent);
+  display: inline-block;
+}
+
+.headline {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--text-primary);
+  line-height: 1.15;
+  margin: 6px 0 8px;
+}
+
+.subhead {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Soft pastel page-header strip with optional story image inside */
+.story-hero {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  background: linear-gradient(135deg, rgba(232, 131, 107, 0.10), rgba(108, 123, 214, 0.10));
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 20px 24px;
+  margin-bottom: 24px;
+}
+.story-hero-text { flex: 1; min-width: 0; }
+.story-hero-image { flex-shrink: 0; }
+
+.story-hero-compact {
+  padding: 14px 18px;
+}
+
+/* Icon-in-circle pattern (used in stat cards, nav, empty states) */
+.icon-bubble {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+.icon-bubble-primary { background: var(--primary-glow); color: var(--primary); }
+.icon-bubble-accent  { background: rgba(232,131,107,0.15); color: var(--accent); }
+.icon-bubble-success { background: var(--success-dim); color: var(--success); }
+.icon-bubble-warning { background: var(--warning-dim); color: var(--warning); }
+.icon-bubble-danger  { background: var(--danger-dim); color: var(--danger); }
+.icon-bubble-lg { width: 56px; height: 56px; }
+
+/* Replace empty-state emoji bubble with icon */
+.empty-state .empty-icon-bubble {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
