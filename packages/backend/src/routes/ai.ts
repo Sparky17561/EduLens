@@ -167,7 +167,7 @@ router.post('/sync/retry', (req: Request, res: Response) => {
 // POST /ai/command — unified slash command handler
 router.post('/command', async (req: Request, res: Response) => {
   try {
-    const { sessionId, senderId, senderName, role, input, sessionTopic, previousAnswer } = req.body
+    const { sessionId, senderId, senderName, role, input, sessionTopic, previousAnswer, language } = req.body
     if (!input) return res.status(400).json({ error: 'input required' })
 
     const parsed = parseSlashCommand(input)
@@ -200,7 +200,7 @@ router.post('/command', async (req: Request, res: Response) => {
       return res.json({ answer: formatted, command: parsed.command, outline })
     }
 
-    const result = await executeChatCommand(parsed.command, parsed.arg, { sessionTopic, previousAnswer })
+    const result = await executeChatCommand(parsed.command, parsed.arg, { sessionTopic, previousAnswer, language })
 
     if (sessionId) {
       persistAiMessage(db, sessionId, result.answer, parsed.command, {
@@ -227,10 +227,10 @@ router.post('/command', async (req: Request, res: Response) => {
 // POST /ai/ask — backward compatible (delegates to /command)
 router.post('/ask', async (req: Request, res: Response) => {
   try {
-    const { sessionId, senderId, senderName, question, sessionTopic } = req.body
+    const { sessionId, senderId, senderName, question, sessionTopic, language } = req.body
     if (!question) return res.status(400).json({ error: 'question required' })
 
-    const result = await executeChatCommand('ask', question, { sessionTopic })
+    const result = await executeChatCommand('ask', question, { sessionTopic, language })
     const db = getDb()
 
     if (sessionId) {
@@ -338,8 +338,23 @@ router.get('/reteach/:sessionId', (req: Request, res: Response) => {
 
 router.patch('/reteach/:id', (req: Request, res: Response) => {
   try {
-    const plan = updateReteachPlan(req.params.id, req.body)
+    const plan = updateReteachPlan(req.params.id, req.body) as any
     if (!plan) return res.status(404).json({ error: 'Not found' })
+    if (req.body.status === 'assigned' && plan.session_id) {
+      broadcastToSession(plan.session_id, {
+        event: 'reteach_assigned',
+        sessionId: plan.session_id,
+        payload: {
+          id: plan.id,
+          topic: plan.topic,
+          lessonSummary: plan.lesson_summary,
+          conceptExplanation: plan.concept_explanation,
+          exercises: JSON.parse(plan.exercises_json || '[]'),
+          examples: JSON.parse(plan.examples_json || '[]'),
+          homework: JSON.parse(plan.homework_json || '{}'),
+        }
+      })
+    }
     res.json({ plan })
   } catch (err: any) {
     res.status(500).json({ error: err.message })

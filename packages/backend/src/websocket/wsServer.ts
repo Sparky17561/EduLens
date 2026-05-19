@@ -13,6 +13,7 @@ export type WSEventType =
   | 'start_video'
   | 'flashcards_ready'
   | 'analytics_updated'
+  | 'reteach_assigned'
   | 'ping'
   | 'pong'
 

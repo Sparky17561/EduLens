@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { useSessionStore } from '../store/sessionStore'
+import { useProfileStore } from '../store/profileStore'
 
 export function useStudentWebSocket() {
-  const { session, student, addMessage, setActiveQuiz, setSessionEnded, setQuizResult, setFlashcards, setPendingQuiz, setHomeworkGenerating, completedQuizIds } = useSessionStore()
+  const { session, student, addMessage, setActiveQuiz, setSessionEnded, setQuizResult, setFlashcards, setPendingQuiz, setHomeworkGenerating, completedQuizIds, addReteachPlan } = useSessionStore()
+  const joinTimeRef = useRef(Date.now())
   const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
@@ -77,9 +79,31 @@ export function useStudentWebSocket() {
               break
             }
 
-            case 'session_ended':
+            case 'session_ended': {
               setSessionEnded(true)
+              const state = useSessionStore.getState()
+              const profileState = useProfileStore.getState()
+              if (state.session && state.student) {
+                const qr = state.quizResult
+                profileState.addSessionRecord({
+                  id: `${state.session.id}-${Date.now()}`,
+                  sessionId: state.session.id,
+                  code: state.session.code,
+                  topic: state.session.topic,
+                  date: new Date().toISOString(),
+                  durationSeconds: Math.round((Date.now() - joinTimeRef.current) / 1000),
+                  quizScore: qr?.score,
+                  quizTotal: qr?.total,
+                  quizPercentage: qr ? Math.round(qr.percentage) : undefined,
+                  weakTopics: qr?.weakTopics,
+                  strongTopics: qr?.strongTopics,
+                  topicBreakdown: qr?.topicBreakdown,
+                  homework: qr?.homework,
+                  reportId: qr?.reportId,
+                })
+              }
               break
+            }
 
             case 'homework_ready': {
               const latestStore = useSessionStore.getState()
@@ -96,6 +120,21 @@ export function useStudentWebSocket() {
             case 'flashcards_ready':
               if (msg.payload.flashcards?.length) {
                 setFlashcards(msg.payload.flashcards as any)
+              }
+              break
+
+            case 'reteach_assigned':
+              if (msg.payload?.id) {
+                addReteachPlan(msg.payload)
+                addMessage({
+                  id: `reteach-${msg.payload.id}`,
+                  senderId: 'system',
+                  senderName: 'Teacher',
+                  role: 'ai',
+                  content: `📚 Your teacher assigned a reteach lesson: **${msg.payload.topic}**\n${msg.payload.lessonSummary}`,
+                  messageType: 'reteach',
+                  createdAt: new Date().toISOString(),
+                })
               }
               break
           }
@@ -115,6 +154,7 @@ export function useStudentWebSocket() {
       }
     }
 
+    joinTimeRef.current = Date.now()
     connect()
 
     return () => {

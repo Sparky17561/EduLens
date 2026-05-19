@@ -28,7 +28,23 @@
       "PowerShell(cd \"c:\\\\EduLens\\\\packages\\\\teacher-app\"; $errors = npx tsc --noEmit 2>&1; $errors | Where-Object { $_ -match \"StudentQRScanner|Reports\" } | Out-String; Write-Host \"done\")",
       "PowerShell(cd \"c:\\\\EduLens\\\\packages\\\\teacher-app\"; npx tsc --noEmit 2>&1 | Where-Object { $_ -match \"Dashboard\" })",
       "Bash(Get-ChildItem -Path \"C:\\\\EduLens\" -Recurse -Directory -ErrorAction SilentlyContinue)",
-      "Bash(Select-Object -ExpandProperty FullName)"
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "PowerShell($env:ANDROID_HOME; $env:ANDROID_SDK_ROOT; Get-ChildItem \"$env:LOCALAPPDATA\\\\Android\\\\Sdk\" -ErrorAction SilentlyContinue | Select-Object -First 5)",
+      "Bash(ls \"C:\\\\Users\\\\deepa\\\\AppData\\\\Local\\\\Android\\\\Sdk\" 2>/dev/null | head -20)",
+      "Read(//c/Users/deepa/AppData/Local/Android/Sdk/**)",
+      "Bash(ANDROID_HOME=\"C:/Users/deepa/AppData/Local/Android/Sdk\" npx expo prebuild --platform android --clean)",
+      "Bash(ANDROID_HOME=\"C:/Users/deepa/AppData/Local/Android/Sdk\" ./gradlew assembleDebug)",
+      "Bash([ -f \"C:/Users/deepa/AppData/Local/Android/Sdk/ndk/$v/source.properties\" ])",
+      "Bash(\"C:/Users/deepa/AppData/Local/Android/Sdk/cmdline-tools/latest/bin/sdkmanager\" --list)",
+      "Bash(\"C:/Users/deepa/AppData/Local/Android/Sdk/cmdline-tools/latest/bin/sdkmanager.bat\" \"ndk;27.1.12297006\")",
+      "Bash(Read \"C:/Users/deepa/AppData/Local/Temp/claude/c--EduLens/e59d56a8-a359-4994-902e-5ffa69d62fdc/tasks/bfko23q1k.output\")",
+      "Bash(npx electron *)",
+      "Bash(node node_modules/electron/dist/electron.exe --version)",
+      "Bash(\"c:/EduLens/node_modules/.bin/electron\" --version)",
+      "Bash(npx @electron/rebuild --version 29.4.6 --module-dir packages/backend --which-module better-sqlite3 --force)",
+      "PowerShell(Stop-Process -Name \"electron\" -Force -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Name \"EduLens\" -Force -ErrorAction SilentlyContinue)",
+      "Bash(npx prebuild-install *)"
     ]
   }
 }

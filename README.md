@@ -4,18 +4,23 @@
 
 > An offline-first, AI-powered classroom platform that runs entirely on a teacher's laptop — no cloud required. Students join over local Wi-Fi, ask AI questions, take adaptive quizzes, and receive personalised homework — all without an internet connection.
 
+<p align="center">
+  <img src="screenshots/Screenshot 2026-05-19 152759.png" width="900" alt="EduLens Teacher Dashboard — live session with student joined" />
+</p>
+
 ---
 
 ## Table of Contents
 
 - [Overview](#overview)
+- [Screenshots](#screenshots)
 - [Architecture](#architecture)
 - [Features](#features)
-- [Screenshots](#screenshots)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Environment Variables](#environment-variables)
-- [Running the Project](#running-the-project)
+- [Running Locally](#running-locally)
+- [Deploying to Render](#deploying-to-render)
 - [Student App Flow](#student-app-flow)
 - [Teacher Dashboard Flow](#teacher-dashboard-flow)
 - [Chat Command Reference](#chat-command-reference)
@@ -28,13 +33,145 @@
 
 ## Overview
 
-EduLens bridges the gap between classroom teaching and personalised learning in low-connectivity environments. A single teacher laptop acts as the hub — running the backend, AI model, and serving all students over LAN. Students need only an Android or iOS phone running Expo Go.
+EduLens bridges the gap between classroom teaching and personalised learning in low-connectivity environments. A single teacher laptop acts as the hub — running the backend, AI model, and serving all students over LAN. Students need only an Android or iOS phone with Expo Go installed.
 
 **Key design goals:**
 - **Zero cloud dependency** — fully functional with Ollama running locally
 - **Offline-resilient** — students queue messages and sync when reconnected
 - **Privacy-first** — all student data stays on-device or on the teacher's machine
-- **Inclusive** — multilingual UI (English, Hindi, Tamil, Bengali, Kiswahili), voice TTS output
+- **Inclusive** — multilingual UI (English, Hindi, Tamil, Bengali, Kiswahili) with voice TTS output
+
+---
+
+## Screenshots
+
+### Teacher App (Electron Desktop)
+
+#### Session Management
+
+| Start a Session | Live Session QR | Student Joined |
+|:---:|:---:|:---:|
+| <img src="screenshots/Screenshot 2026-05-19 152742.png" width="290" alt="Start Session"> | <img src="screenshots/Screenshot 2026-05-19 152428.png" width="290" alt="Session QR Code"> | <img src="screenshots/Screenshot 2026-05-19 152759.png" width="290" alt="Student Online"> |
+
+*Left: Start a session — enter a topic, attach an optional PDF knowledge base, see past sessions grid. Centre: The session goes live instantly — students scan the QR code or type the 6-character code. Right: Dashboard updates in real-time as students join.*
+
+---
+
+#### AI Chat with RAG
+
+<p align="center">
+  <img src="screenshots/Screenshot 2026-05-19 152419.png" width="900" alt="Teacher Chat — slash commands and RAG citations" />
+</p>
+
+*The teacher chat panel offers 15+ slash commands as clickable chips. AI answers are grounded in the uploaded PDF textbook, with page citations shown inline.*
+
+<p align="center">
+  <img src="screenshots/Screenshot 2026-05-19 151137.png" width="900" alt="RAG citation detail — book name and page number" />
+</p>
+
+*Close-up of a RAG-grounded answer: source book, chapter, and page number are cited alongside the AI response.*
+
+---
+
+#### Quiz Studio
+
+| AI Quiz Generator | Generated Questions | Class Scores Live |
+|:---:|:---:|:---:|
+| <img src="screenshots/Screenshot 2026-05-19 152435.png" width="290" alt="Quiz Studio Generator"> | <img src="screenshots/Screenshot 2026-05-19 152815.png" width="290" alt="Generated Questions"> | <img src="screenshots/Screenshot 2026-05-19 152845.png" width="290" alt="Live Class Scores"> |
+
+*Left: Configure topic, difficulty, Bloom's taxonomy level, question count, and types (MCQ / Short Answer / True-False / Match / Fill-Blanks). Centre: Edit generated questions before launching. Right: Dashboard updates with student scores the moment quizzes are submitted.*
+
+---
+
+#### Analytics, Misconceptions & Homework
+
+<p align="center">
+  <img src="screenshots/Screenshot 2026-05-19 152854.png" width="900" alt="Analytics — topic performance and class heatmap" />
+</p>
+
+<p align="center">
+  <img src="screenshots/Screenshot 2026-05-19 152857.png" width="900" alt="Analytics — detected misconceptions and AI summary" />
+</p>
+
+*Analytics page shows per-topic performance bars, a class heatmap by student × topic, auto-detected misconceptions from wrong answers, and an AI-generated summary with actionable next steps.*
+
+<p align="center">
+  <img src="screenshots/Screenshot 2026-05-19 152904.png" width="900" alt="Homework — AI-generated per-student remedial plan" />
+</p>
+
+*The Homework page shows each student's AI-generated personalised assignment: concept recap, follow-up questions, revision tasks, knowledge challenge, and suggested discussion topics.*
+
+---
+
+#### Reports & Knowledge Base
+
+| Session Reports | Knowledge Base & Cloud Sync |
+|:---:|:---:|
+| <img src="screenshots/Screenshot 2026-05-19 152920.png" width="440" alt="Reports"> | <img src="screenshots/Screenshot 2026-05-19 152509.png" width="440" alt="Knowledge Base"> |
+
+*Left: Full session report with per-student score breakdown, actionable insights, and export options (JSON / PDF / QR Bundle). Right: Upload PDF textbooks to ground AI answers; manage stored knowledge bases and push session bundles to the cloud.*
+
+---
+
+### Student App (React Native · Expo Go)
+
+#### Joining a Session
+
+| Home Screen | QR Scanner | Class Lobby |
+|:---:|:---:|:---:|
+| <img src="screenshots/WhatsApp Image 2026-05-19 at 15.32.29.jpeg" width="210" alt="Home — join session"> | <img src="screenshots/WhatsApp Image 2026-05-19 at 15.32.29 (2).jpeg" width="210" alt="QR Scanner"> | <img src="screenshots/WhatsApp Image 2026-05-19 at 15.32.26.jpeg" width="210" alt="Class Lobby"> |
+
+*Left: Home tab — scan the teacher's QR code or type the 6-character session code. Centre: Live QR scanner aligned to the teacher's screen. Right: Lobby shows connection status, session topic, and tiles for Chat, Flashcards, Quiz Results, and Report Card.*
+
+---
+
+#### AI Tutor Chat
+
+<p align="center">
+  <img src="screenshots/WhatsApp Image 2026-05-19 at 15.32.26 (1).jpeg" width="360" alt="Student Chat — AI answer with RAG citations" />
+</p>
+
+*Students ask questions in plain language or use slash commands. AI answers include RAG citations (book name + page). Language chips (EN / HI) switch TTS voice output.*
+
+---
+
+#### Flashcards
+
+| Question Side | Answer Revealed |
+|:---:|:---:|
+| <img src="screenshots/WhatsApp Image 2026-05-19 at 15.32.28.jpeg" width="300" alt="Flashcard question"> | <img src="screenshots/WhatsApp Image 2026-05-19 at 15.32.28 (1).jpeg" width="300" alt="Flashcard answer"> |
+
+*AI-generated revision flashcards persist offline. Tap to flip; mark "Got it!" to track mastery progress.*
+
+---
+
+#### Quiz Flow
+
+| Quiz Notification | Quiz Results |
+|:---:|:---:|
+| <img src="screenshots/WhatsApp Image 2026-05-19 at 15.32.30.jpeg" width="300" alt="Quiz Time popup"> | <img src="screenshots/WhatsApp Image 2026-05-19 at 15.32.30 (1).jpeg" width="300" alt="Quiz Results"> |
+
+*A full-screen modal pops up the moment the teacher launches the quiz — no page refresh needed. Results show grade, topic performance bars, and quick links to homework and the full report.*
+
+---
+
+#### Report Card & Homework
+
+| Session Report | My Homework | Report List |
+|:---:|:---:|:---:|
+| <img src="screenshots/WhatsApp Image 2026-05-19 at 15.32.31.jpeg" width="210" alt="Session Report"> | <img src="screenshots/WhatsApp Image 2026-05-19 at 15.32.31 (1).jpeg" width="210" alt="My Homework"> | <img src="screenshots/WhatsApp Image 2026-05-19 at 15.32.32 (1).jpeg" width="210" alt="Report List"> |
+
+*Left: Full academic report card with score, grade, topic breakdown, mastered/review areas, and homework recap. Centre: Personalised homework — concept recap, self-check questions, revision checklist, knowledge challenge, and teacher discussion prompts. Right: Report list with expandable cards and QR-share for the teacher.*
+
+---
+
+#### Sessions History & Profile
+
+| Past Sessions | Profile & Language |
+|:---:|:---:|
+| <img src="screenshots/WhatsApp Image 2026-05-19 at 15.32.32 (2).jpeg" width="300" alt="Past Sessions"> | <img src="screenshots/WhatsApp Image 2026-05-19 at 15.32.32 (3).jpeg" width="300" alt="Profile"> |
+
+*Left: Sessions tab — full history of attended classes with date, session code, and duration. Right: Profile tab — animal avatar, session count, active session rejoin button, and language selector.*
 
 ---
 
@@ -81,7 +218,7 @@ EduLens/
   └─ React Native UI (student-app)
 ```
 
-AI inference runs on the teacher's machine via **Ollama** (local, private). A **Groq** API key can be configured as an optional cloud fallback for stronger models.
+AI inference runs on the teacher's machine via **Ollama** (local, private). A **Groq** API key can be configured as an optional cloud fallback — and is used as the primary provider when deploying to Render.
 
 ---
 
@@ -91,43 +228,32 @@ AI inference runs on the teacher's machine via **Ollama** (local, private). A **
 | Feature | Description |
 |---|---|
 | **Session Management** | Start/end sessions with a topic; generates a QR code and LAN join URL instantly |
-| **Live Student Roster** | Real-time list of connected students with quiz submission status |
-| **Quiz Studio** | AI-generated multi-format quiz (MCQ, true/false, short answer, fill-in-the-blank, matching); manual editing supported |
-| **AI Chat** | 12+ slash commands with confidence scoring and RAG citations |
-| **Knowledge Base** | Upload PDF textbooks; AI answers are grounded in your curriculum |
-| **Analytics** | Per-topic class performance, weak-area heatmap, student rankings |
-| **Reteach Loop** | Auto-generates remedial lesson plans from weak-topic analytics |
+| **Live Student Roster** | Real-time list of connected students with quiz submission status and scores |
+| **Quiz Studio** | AI-generated multi-format quiz (MCQ, true/false, short answer, fill-in-the-blank, matching); manually editable before launch |
+| **AI Chat** | 15+ slash commands with confidence scoring and RAG citations |
+| **Knowledge Base** | Upload PDF textbooks; AI answers grounded in your curriculum |
+| **Analytics** | Per-topic class performance, weak-area heatmap, auto-detected misconceptions, AI summary |
+| **Reteach Loop** | Auto-generates remedial lesson plans from weak-topic analytics; pushes to students via WebSocket |
 | **Reports** | Per-student and class-wide reports; export to JSON, PDF, or QR bundle |
 | **Student QR Scanner** | Scan a student's report QR code to instantly receive their full data |
 | **Past Sessions** | Browsable history of all ended sessions with click-through to reports |
-| **Sync** | One-click session bundle export and restore; LAN peer sync |
+| **Sync** | One-click session bundle export and restore; LAN peer sync; optional cloud push |
 
 ### Student Mobile App
 | Feature | Description |
 |---|---|
 | **Onboarding & Profiles** | Animated splash → onboarding carousel → multi-profile selector with 4-digit PIN unlock |
-| **Session Join** | Scan teacher's QR code or enter a 6-character session code |
-| **AI Tutor Chat** | Ask questions in natural language; AI responds with curriculum-grounded answers and citations |
+| **Session Join** | Scan teacher's QR code or enter the 6-character session code |
+| **AI Tutor Chat** | Ask questions in natural language; AI responds with curriculum-grounded answers and RAG citations |
 | **Voice TTS** | Tap any AI message to hear it read aloud in the selected language |
+| **Flashcards** | Offline-ready flip-card deck generated from session topic; "Got it!" mastery tracking |
 | **Live Quiz** | Adaptive multi-format quiz launched by the teacher; popup notification when ready |
 | **Personalised Homework** | AI-generated homework based on individual quiz weak spots |
 | **Report Card** | Score breakdown, topic performance bars, weak/strong area summary, homework recap |
 | **QR Report Export** | Generate a QR code from your report; teacher scans to receive data instantly |
-| **Past Sessions** | Full history of all sessions with scores, durations, and topic breakdowns |
+| **Past Sessions** | Full history of all sessions with codes, dates, and durations |
 | **Offline Mode** | Chat messages queue locally and sync automatically on reconnect |
-| **Bottom Navigation** | Home · Sessions · Report · Profile — persistent tab bar with Ghibli-aesthetic design |
-
----
-
-## Screenshots
-
-| Teacher Dashboard | Quiz Studio | Student Home |
-|:---:|:---:|:---:|
-| _screenshot_ | _screenshot_ | _screenshot_ |
-
-| Student Report | QR Export | Past Sessions |
-|:---:|:---:|:---:|
-| _screenshot_ | _screenshot_ | _screenshot_ |
+| **Multilingual** | English, हिंदी, தமிழ், বাংলা, Kiswahili — TTS voice follows your selected language |
 
 ---
 
@@ -137,7 +263,7 @@ AI inference runs on the teacher's machine via **Ollama** (local, private). A **
 |---|---|---|
 | Node.js | 18+ | LTS recommended |
 | npm | 9+ | Workspaces support required |
-| [Ollama](https://ollama.com) | Latest | Must be running locally |
+| [Ollama](https://ollama.com) | Latest | For local AI inference |
 | Expo Go | SDK 54 | Installed on student phones |
 | Android / iOS | Android 8+ / iOS 14+ | For student devices |
 
@@ -165,9 +291,9 @@ npm install
 cp packages/backend/.env.example packages/backend/.env
 # Edit packages/backend/.env — see Environment Variables below
 
-# 4. Install student app dependencies (isolated from workspace)
-cd packages/student-app
-npm install
+# 4. Build the backend
+cd packages/backend
+npx tsc
 cd ../..
 ```
 
@@ -183,7 +309,7 @@ OLLAMA_URL=http://localhost:11434
 OLLAMA_MODEL=gemma2:2b          # any model you have pulled
 OLLAMA_EMBED_MODEL=nomic-embed-text
 
-# ── AI (Cloud Fallback — optional) ───────────────────────
+# ── AI (Cloud Fallback — optional locally, required on Render) ──
 GROQ_API_KEY=your_groq_key_here
 GROQ_MODEL=llama-3.3-70b-versatile
 
@@ -195,11 +321,11 @@ DB_PATH=                        # leave blank for ./data/edulens.db
 DEFAULT_TEACHER_PIN=1234
 ```
 
-> **Note:** The backend loads `.env` from `packages/backend/`. If you run the backend from the repo root it will not find the file — always run from the `packages/backend/` directory or use the Electron app.
+> **Note:** The backend loads `.env` from `packages/backend/`. When using the Electron teacher app, environment is loaded automatically. For standalone development, run from `packages/backend/`.
 
 ---
 
-## Running the Project
+## Running Locally
 
 ### Teacher App (Electron)
 
@@ -208,9 +334,7 @@ cd packages/teacher-app
 npm run dev
 ```
 
-Login with PIN `1234` (or whatever you set in `DEFAULT_TEACHER_PIN`).
-
-The Electron shell automatically starts the backend server on port 3001 and opens the React UI.
+Login with PIN `1234` (or whatever you set in `DEFAULT_TEACHER_PIN`). The Electron shell starts the backend on port 3001 automatically.
 
 ### Student App (Expo)
 
@@ -234,6 +358,106 @@ Health check: `GET http://localhost:3001/health`
 
 ---
 
+## Deploying to Render
+
+You can host the EduLens backend on [Render](https://render.com) so students connect over the internet instead of LAN — useful for remote or hybrid classrooms.
+
+> **WebSocket note:** Persistent WebSocket connections require a paid Render plan (Starter $7/month or above). The free tier may drop long-lived connections.
+
+> **AI note:** Ollama cannot run on Render. Set `GROQ_API_KEY` as your primary AI provider — all inference routes through Groq's cloud API instead.
+
+### Step 1 — Push your repo to GitHub
+
+```bash
+git remote add origin https://github.com/your-org/edulens.git
+git push -u origin main
+```
+
+### Step 2 — Create a new Web Service on Render
+
+1. Log in at [render.com](https://render.com)
+2. Click **New → Web Service**
+3. Connect your GitHub repository
+4. Configure the service:
+
+| Setting | Value |
+|---|---|
+| **Name** | `edulens-backend` |
+| **Runtime** | Node |
+| **Root Directory** | `packages/backend` |
+| **Build Command** | `npm install && npx tsc` |
+| **Start Command** | `node dist/index.js` |
+| **Instance Type** | Starter (for WebSocket support) |
+
+### Step 3 — Add a Persistent Disk for SQLite
+
+SQLite is file-based — without a persistent disk, all data is lost on every deploy or restart.
+
+1. In your Render service → **Disks** → **Add Disk**
+2. Configure:
+
+| Setting | Value |
+|---|---|
+| **Name** | `edulens-data` |
+| **Mount Path** | `/data` |
+| **Size** | 1 GB |
+
+### Step 4 — Set Environment Variables
+
+In Render → **Environment** → add each variable:
+
+```
+NODE_ENV=production
+PORT=10000
+DB_PATH=/data/edulens.db
+GROQ_API_KEY=your_groq_api_key_here
+GROQ_MODEL=llama-3.3-70b-versatile
+DEFAULT_TEACHER_PIN=1234
+OLLAMA_URL=
+```
+
+> Get a free Groq API key at [console.groq.com](https://console.groq.com). The free tier is generous enough for classroom use.
+
+### Step 5 — Update the Student App Server URL
+
+In [packages/student-app/src/api/client.ts](packages/student-app/src/api/client.ts), change the base URL from the LAN address to your Render URL:
+
+```ts
+const BASE_URL = 'https://edulens-backend.onrender.com'
+```
+
+Then rebuild and redistribute the student APK (or update the Expo config).
+
+### Step 6 — Deploy
+
+Render auto-deploys on every push to `main`. Watch the build logs in the Render dashboard. A successful deploy shows:
+
+```
+[server] EduLens backend running on port 10000
+[WS] WebSocket server initialized
+```
+
+### Step 7 — Verify
+
+```bash
+curl https://edulens-backend.onrender.com/health
+# → {"status":"ok","db":"connected"}
+```
+
+### Render Deployment Summary
+
+```
+render.com
+└─ Web Service: edulens-backend
+      Root: packages/backend
+      Build: npm install && npx tsc
+      Start: node dist/index.js
+      Disk:  /data (1 GB) → DB_PATH=/data/edulens.db
+      Env:   GROQ_API_KEY, DEFAULT_TEACHER_PIN, PORT=10000
+```
+
+---
+
 ## Student App Flow
 
 ```
@@ -241,17 +465,17 @@ Splash (2.6 s)
   └─ First launch?
         ├─ Yes → Onboarding (3-slide carousel) → ProfileSelect
         └─ No  → ProfileSelect
-               └─ New profile → NewProfile → PinUnlock (create) → MainTabs
-               └─ Existing    → PinUnlock (enter)              → MainTabs
+               └─ New profile  → NewProfile → PinUnlock (create) → MainTabs
+               └─ Existing     → PinUnlock (enter)               → MainTabs
 
 MainTabs (bottom navigation)
-  ├─ 🏠 Home       — QR scan or code entry to join a session
-  ├─ 🕐 Sessions   — Past session history with scores and duration
-  ├─ 📋 Report     — Per-session drill-down: scores, topic breakdown, QR export
-  └─ 👤 Profile    — Account info, language, leave session, switch profile
+  ├─ Home      — QR scan or code entry to join a session
+  ├─ Sessions  — Past session history with codes, dates, durations
+  ├─ Report    — Per-session drill-down: scores, topic breakdown, QR export
+  └─ Profile   — Account info, language, active session rejoin, switch profile
 
 In-session screens (accessed from Home tab):
-  Lobby → Chat ↔ Quiz → Results → Homework → Flashcards
+  Lobby → Chat ↔ Flashcards ↔ Quiz → Results → Homework → Report
 ```
 
 ---
@@ -262,15 +486,18 @@ In-session screens (accessed from Home tab):
 Login (PIN)
   └─ Dashboard
         ├─ No active session → Start Session (topic + optional knowledge base)
-        │                   → Past sessions grid
-        └─ Active session   → Live roster + analytics
-                            → Quiz Studio → AI Generate → Launch
-                            → Chat (slash commands)
+        │                   → Past sessions grid → click to view report
+        └─ Active session   → Live roster + class health metrics
+                            → Quiz Studio → AI Generate → Edit → Launch
+                            → Chat (slash commands, RAG answers)
+                            → Analytics (heatmap, misconceptions)
+                            → Homework (per-student AI plans)
+                            → Reteach (assign remedial plans to students)
                             → End Session
-  └─ Reports → Select session → Student reports
-             → Scan Student QR (camera) → instant report view
-  └─ Analytics → Topic heatmap, class trends
-  └─ Settings  → Upload PDF knowledge base
+  └─ Reports   → Select session → per-student reports → export JSON/PDF/Bundle
+               → Scan Student QR (camera) → instant report view
+  └─ Analytics → Topic heatmap, class trends, misconception detection
+  └─ Knowledge → Upload PDF knowledge base; manage stored bases; cloud sync
 ```
 
 ---
@@ -297,7 +524,7 @@ All commands work in both the teacher and student chat interfaces.
 | `/practice [topic]` | Practice problems with solutions | `/practice quadratic equations` |
 | `/define [term]` | Precise definition with context | `/define entropy` |
 
-All AI responses include a **confidence indicator** (High / Likely / Uncertain) to reduce hallucinations.
+All AI responses include a **confidence indicator** (High / Likely / Uncertain) to help students and teachers gauge answer reliability.
 
 ---
 
@@ -308,24 +535,31 @@ All AI responses include a **confidence indicator** (High / Likely / Uncertain) 
 - Model: `gemma2:2b` by default — swap for any Ollama-compatible model
 - Embedding model: `nomic-embed-text` for semantic chunk retrieval
 
-### Cloud fallback (optional)
+### Cloud fallback / Render primary
 - **Groq** with `llama-3.3-70b-versatile` when `GROQ_API_KEY` is set
-- Falls back automatically if Ollama is unavailable
+- Falls back automatically if Ollama is unavailable; used as primary on Render
 
 ### RAG pipeline
-1. Teacher uploads a PDF in Settings → text is chunked (512-token windows with overlap)
-2. Chunks are embedded and stored in SQLite with source/chapter/page metadata
+1. Teacher uploads a PDF in the Knowledge page → text is chunked (512-token windows with overlap)
+2. Chunks are embedded and stored in SQLite with source / chapter / page metadata
 3. On `/ask` or `/cite`, top-k chunks are retrieved by TF-IDF + cosine similarity
 4. Retrieved context is injected into the prompt alongside the question
-5. Citations (book, chapter, page) are returned with the answer and rendered in-app
+5. Citations (book name, chapter, page) are returned with the answer and rendered in-app
 
 ### Homework generation
 After a student submits a quiz, the backend:
-1. Scores all answers server-side (prevents cheating)
+1. Scores all answers server-side
 2. Classifies topics as weak (<60%) or strong (≥60%)
 3. Sends wrong-answer data to AI for misconception analysis
-4. Generates personalised homework: concept recap, revision tasks, follow-up questions, practice challenges
+4. Generates personalised homework: concept recap, self-check questions, revision checklist, knowledge challenge, and teacher discussion prompts
 5. Broadcasts `homework_ready` to the student via WebSocket
+
+### Reteach pipeline
+When the teacher clicks Assign Reteach in the Analytics page:
+1. AI generates a full remedial lesson plan for the weakest topic
+2. The plan is stored in the database with `status = assigned`
+3. A `reteach_assigned` WebSocket event is broadcast to all students in the session
+4. Students see the plan as a chat message and can access the full lesson
 
 ---
 
@@ -333,13 +567,14 @@ After a student submits a quiz, the backend:
 
 ### Student offline queue
 - Messages typed when disconnected are stored in `AsyncStorage`
-- On reconnect, the queue replays in order (chat messages, AI commands)
+- On reconnect, the queue replays in order
 - Sync status is visible in the Lobby screen
 
 ### Session bundle sync (teacher)
 - **Export:** serialises the entire session (messages, quiz attempts, reports, analytics) to a JSON bundle
 - **Import:** restore a past session from bundle on a different machine
 - **Peer sync:** `POST /sync/run` exchanges deltas with another EduLens instance on the LAN
+- **Cloud push:** `Push session to cloud` uploads the bundle to a configured `SYNC_CLOUD_URL`
 
 ### Flashcard persistence
 - Flashcards are generated from the session topic at session start and saved to the database
@@ -351,12 +586,12 @@ After a student submits a quiz, the backend:
 
 | Layer | Technology | Notes |
 |---|---|---|
-| **Teacher UI** | Electron 28, React 18, TypeScript | Desktop shell + embedded server |
+| **Teacher UI** | Electron 29, React 18, TypeScript | Desktop shell + embedded server |
 | **Student UI** | Expo SDK 54, React Native 0.81, TypeScript | Expo Go compatible |
-| **Backend** | Express 4, better-sqlite3, ws | Embedded in Electron |
+| **Backend** | Express 4, better-sqlite3, ws | Embedded in Electron; deployable standalone |
 | **State** | Zustand + AsyncStorage (mobile) | Persist middleware |
 | **AI (local)** | Ollama (`gemma2:2b`) | Runs on teacher laptop |
-| **AI (cloud)** | Groq (`llama-3.3-70b-versatile`) | Optional fallback |
+| **AI (cloud)** | Groq (`llama-3.3-70b-versatile`) | Optional fallback / Render primary |
 | **RAG** | Custom TF-IDF + cosine, SQLite | PDF chunks with metadata |
 | **Charts** | Recharts (web), custom SVG (mobile) | |
 | **QR** | `qrcode` (backend), `react-native-qrcode-svg` (mobile), `qrcode.react` (web) | |
@@ -372,12 +607,9 @@ After a student submits a quiz, the backend:
 cd packages/student-app && npx tsc --noEmit
 cd packages/backend     && npx tsc --noEmit
 cd packages/teacher-app && npx tsc --noEmit
-
-# Start all packages in parallel (from repo root)
-npm run dev  # if configured in root package.json
 ```
 
-**Branch naming:** `feat/`, `fix/`, `chore/`  
+**Branch naming:** `feat/`, `fix/`, `chore/`
 **Commit style:** Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`)
 
 ---

@@ -57,7 +57,7 @@ function assessConfidence(
     return { level: 'medium', note: 'Partial match from textbook — double-check with your teacher.' }
   }
   if (hasActiveKnowledgeBase() && !hasRag) {
-    return { level: 'low', note: 'Your uploaded material does not cover this — ask your teacher.' }
+    return { level: 'medium', note: 'General curriculum answer — verify with NCERT or your teacher.' }
   }
   return { level: 'medium', note: 'General curriculum answer — verify with NCERT.' }
 }
@@ -79,9 +79,25 @@ async function runPrompt(userPrompt: string, systemPrompt: string, temperature =
 export async function executeChatCommand(
   command: ChatCommand,
   arg: string,
-  context?: { sessionTopic?: string; previousAnswer?: string }
+  context?: { sessionTopic?: string; previousAnswer?: string; language?: string }
 ): Promise<CommandResult> {
+  // Guard: /ask with no question — use session topic or prompt for input
+  if (command === 'ask' && !arg.trim()) {
+    if (context?.sessionTopic) {
+      arg = `Explain the key concepts of: ${context.sessionTopic}`
+    } else {
+      return {
+        answer: "Please type a question after /ask — for example: /ask What is photosynthesis?",
+        confidence: 'low',
+        citations: []
+      }
+    }
+  }
+
   const topic = arg || context?.sessionTopic || 'the lesson topic'
+  const langNote = context?.language && context.language !== 'en-US' && context.language !== 'English'
+    ? `\n\nIMPORTANT: Answer in ${context.language} language.`
+    : ''
   let answer = ''
   let citations: Citation[] = []
   let metadata: Record<string, unknown> = {}
@@ -102,8 +118,8 @@ export async function executeChatCommand(
     case 'define': {
       const sys = `${STRICT_RAG_SYSTEM}\n${CONCISE_RULES}`
       const prompt = hasRag
-        ? `Use ONLY this context:\n${rag.context}\n\nQuestion: ${arg}\n\nShort grounded answer.`
-        : `Question: ${arg}\n\n${CONCISE_RULES}`
+        ? `Use ONLY this context:\n${rag.context}\n\nQuestion: ${arg}\n\nShort grounded answer.${langNote}`
+        : `Question: ${arg}\n\n${CONCISE_RULES}${langNote}`
       answer = await runPrompt(prompt, sys, 0.2)
       if (citations.length) answer += formatCitationFooter(citations)
       break

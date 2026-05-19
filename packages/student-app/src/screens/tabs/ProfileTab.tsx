@@ -38,13 +38,29 @@ function SettingRow({ icon, label, value, onPress, tone = 'default' }: {
   )
 }
 
+const LANG_TO_TTS: Record<string, string> = {
+  'English': 'en-IN',
+  'हिंदी': 'hi-IN',
+  'தமிழ்': 'ta-IN',
+  'বাংলা': 'bn-IN',
+  'Kiswahili': 'sw-KE',
+}
+
 export default function ProfileTab() {
   const nav = useNavigation<Nav>()
-  const { student, session, clearSession, quizResult } = useSessionStore()
-  const { getActiveProfile, sessionHistory, profiles } = useProfileStore()
+  const { student, session, clearSession, quizResult, setTtsLanguage } = useSessionStore()
+  const { getActiveProfile, sessionHistory, profiles, updateProfile } = useProfileStore()
   const profile = getActiveProfile()
   const [showLangPicker, setShowLangPicker] = useState(false)
-  const [lang, setLang] = useState(profile?.lang || 'English')
+  const savedLang = profile?.lang || 'English'
+  const [lang, setLang] = useState(savedLang)
+
+  // Sync TTS language from saved profile on mount
+  React.useEffect(() => {
+    const tts = LANG_TO_TTS[savedLang]
+    if (tts) setTtsLanguage(tts)
+    setLang(savedLang)
+  }, [profile?.id])
 
   const handleSwitchAccount = () => nav.navigate('ProfileSelect')
   const handleLeaveSession = () => {
@@ -129,7 +145,11 @@ export default function ProfileTab() {
           <View style={styles.langTray}>
             {LANGUAGES.map(l => (
               <Chip key={l} label={l} active={l === lang}
-                    onPress={() => setLang(l)}
+                    onPress={() => {
+                      setLang(l)
+                      if (profile) updateProfile(profile.id, { lang: l })
+                      setTtsLanguage(LANG_TO_TTS[l] || 'en-IN')
+                    }}
                     style={{ marginRight: 8, marginBottom: 8 }} />
             ))}
           </View>

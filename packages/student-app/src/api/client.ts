@@ -25,8 +25,8 @@ export const chatApi = {
 }
 
 export const aiApi = {
-  ask: (sessionId: string, senderId: string, senderName: string, question: string, sessionTopic?: string) =>
-    api.post('/ai/ask', { sessionId, senderId, senderName, question, sessionTopic }).then(r => r.data),
+  ask: (sessionId: string, senderId: string, senderName: string, question: string, sessionTopic?: string, language?: string) =>
+    api.post('/ai/ask', { sessionId, senderId, senderName, question, sessionTopic, language }).then(r => r.data),
 
   command: (params: {
     sessionId?: string
@@ -35,6 +35,7 @@ export const aiApi = {
     role: string
     input: string
     sessionTopic?: string
+    language?: string
   }) => api.post('/ai/command', params).then(r => r.data)
 }
 

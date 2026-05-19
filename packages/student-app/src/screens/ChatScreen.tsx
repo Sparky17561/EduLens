@@ -58,9 +58,9 @@ export default function ChatScreen() {
       clearQueue()
       queue.forEach(q => {
         if (isCmd(q.content)) {
-          aiApi.command({ sessionId: session.id, senderId: student.id, senderName: student.name, role: 'student', input: q.content, sessionTopic: session.topic }).catch(e => console.warn(e))
+          aiApi.command({ sessionId: session.id, senderId: student.id, senderName: student.name, role: 'student', input: q.content, sessionTopic: session.topic, language: ttsLanguage }).catch(e => console.warn(e))
         } else if (q.content.startsWith('/ask ')) {
-          aiApi.ask(session.id, student.id, student.name, q.content.slice(5), session.topic).catch(e => console.warn(e))
+          aiApi.ask(session.id, student.id, student.name, q.content.slice(5), session.topic, ttsLanguage).catch(e => console.warn(e))
         } else {
           chatApi.send(session.id, student.id, student.name, q.content).catch(e => console.warn(e))
         }
@@ -115,13 +115,13 @@ export default function ChatScreen() {
 
     if (isCmd(text)) {
       setAiLoading(true)
-      aiApi.command({ sessionId: session.id, senderId: student.id, senderName: student.name, role: 'student', input: text, sessionTopic: session.topic }).catch(e => console.warn('[AI]', e))
+      aiApi.command({ sessionId: session.id, senderId: student.id, senderName: student.name, role: 'student', input: text, sessionTopic: session.topic, language: ttsLanguage }).catch(e => console.warn('[AI]', e))
       return
     }
 
     if (text.startsWith('/ask ')) {
       setAiLoading(true)
-      aiApi.ask(session.id, student.id, student.name, text.slice(5), session.topic).catch(e => console.warn('[AI]', e))
+      aiApi.ask(session.id, student.id, student.name, text.slice(5), session.topic, ttsLanguage).catch(e => console.warn('[AI]', e))
       return
     }
 

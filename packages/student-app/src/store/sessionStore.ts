@@ -55,6 +55,16 @@ export interface Flashcard {
   back: string
 }
 
+export interface ReteachPlan {
+  id: string
+  topic: string
+  lessonSummary: string
+  conceptExplanation: string
+  exercises: string[]
+  examples: string[]
+  homework: { followUpQuestions?: string[]; revisionTasks?: string[] }
+}
+
 export interface SessionState {
   // Student identity
   student: { id: string; name: string } | null
@@ -100,6 +110,10 @@ export interface SessionState {
   homeworkGenerating: boolean
   setHomeworkGenerating: (v: boolean) => void
 
+  // Reteach
+  reteachPlans: ReteachPlan[]
+  addReteachPlan: (plan: ReteachPlan) => void
+
   // Sync
   syncPending: number
   setSyncPending: (n: number) => void
@@ -114,9 +128,9 @@ export const useSessionStore = create<SessionState>()(
       setStudent: (student) => set({ student }),
 
       session: null,
-      setSession: (session) => set({ session, messages: [], activeQuiz: null, quizResult: null, flashcards: [], sessionEnded: false, pendingQuiz: false }),
-      // clearSession keeps completedQuizIds so rejoin doesn't re-show completed quizzes
-      clearSession: () => set({ session: null, messages: [], activeQuiz: null, quizResult: null, flashcards: [], sessionEnded: false, pendingQuiz: false }),
+      setSession: (session) => set({ session, messages: [], activeQuiz: null, quizResult: null, flashcards: [], sessionEnded: false, pendingQuiz: false, reteachPlans: [] }),
+      // clearSession keeps completedQuizIds and quizResult so reports are accessible after leaving session
+      clearSession: () => set({ session: null, messages: [], activeQuiz: null, flashcards: [], sessionEnded: false, pendingQuiz: false, reteachPlans: [] }),
 
       messages: [],
       addMessage: (m) => set(s => {
@@ -162,6 +176,11 @@ export const useSessionStore = create<SessionState>()(
 
       homeworkGenerating: false,
       setHomeworkGenerating: (homeworkGenerating) => set({ homeworkGenerating }),
+
+      reteachPlans: [],
+      addReteachPlan: (plan) => set(s => ({
+        reteachPlans: s.reteachPlans.find(p => p.id === plan.id) ? s.reteachPlans : [...s.reteachPlans, plan]
+      })),
 
       syncPending: 0,
       setSyncPending: (syncPending) => set({ syncPending }),

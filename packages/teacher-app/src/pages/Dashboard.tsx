@@ -35,8 +35,8 @@ export default function Dashboard() {
   useEffect(() => {
     if (!teacher) return
     knowledgeApi.list(teacher.id).then(d => setKnowledgeBases(d.knowledgeBases || [])).catch(() => {})
-    sessionApi.list(teacher.id).then(d => setPastSessions((d.sessions || []).filter((s: any) => s.status === 'ended'))).catch(() => {})
-  }, [teacher, activeSession?.id])
+    fetchPastSessions()
+  }, [teacher?.id])
 
   const startSession = async () => {
     if (!teacher) return
@@ -60,6 +60,13 @@ export default function Dashboard() {
     setLoading(false)
   }
 
+  const fetchPastSessions = () => {
+    if (!teacher) return
+    sessionApi.list(teacher.id)
+      .then(d => setPastSessions((d.sessions || []).filter((s: any) => s.status === 'ended')))
+      .catch(() => {})
+  }
+
   const endSession = async () => {
     if (!activeSession || !teacher) return
     if (!confirm('End the session? All students will be disconnected.')) return
@@ -67,6 +74,7 @@ export default function Dashboard() {
     try {
       await sessionApi.end(activeSession.id, teacher.id)
       setActiveSession(null)
+      fetchPastSessions()
     } catch (e: any) {
       setError(e.response?.data?.error || e.message)
     }

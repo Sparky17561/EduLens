@@ -79,9 +79,10 @@ export const useProfileStore = create<ProfileState>()(
         activeProfileId: s.activeProfileId === id ? null : s.activeProfileId
       })),
 
-      addSessionRecord: (r) => set(s => ({
-        sessionHistory: [r, ...s.sessionHistory].slice(0, 50)
-      })),
+      addSessionRecord: (r) => set(s => {
+        if (s.sessionHistory.some(x => x.sessionId === r.sessionId)) return s
+        return { sessionHistory: [r, ...s.sessionHistory].slice(0, 50) }
+      }),
 
       clearSessionHistory: () => set({ sessionHistory: [] }),
     }),
