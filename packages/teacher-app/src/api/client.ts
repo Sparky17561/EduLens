@@ -1,10 +1,14 @@
 import axios from 'axios'
 
-// Port is discovered from Electron IPC or falls back to 3001
-export let baseUrl = 'http://127.0.0.1:3001'
+// Web deploy: set VITE_API_URL env var pointing to your Render backend.
+// Electron: port is discovered via IPC and overrides this via setBaseUrl().
+export let baseUrl = (import.meta as any).env?.VITE_API_URL || 'http://127.0.0.1:3001'
 
 export function setBaseUrl(port: number) {
-  baseUrl = `http://127.0.0.1:${port}`
+  // Only override if running inside Electron (no VITE_API_URL set)
+  if (!(import.meta as any).env?.VITE_API_URL) {
+    baseUrl = `http://127.0.0.1:${port}`
+  }
 }
 
 const api = axios.create({ baseURL: baseUrl, timeout: 180000 })

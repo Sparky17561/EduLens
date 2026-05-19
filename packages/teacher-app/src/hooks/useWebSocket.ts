@@ -10,7 +10,8 @@ export function useWebSocket(sessionId: string | null, port: number = 3001) {
         wsRef.current?.readyState === WebSocket.OPEN || 
         wsRef.current?.readyState === WebSocket.CONNECTING) return
 
-    const ws = new WebSocket(`ws://127.0.0.1:${port}`)
+    const wsUrl = (import.meta as any).env?.VITE_WS_URL || `ws://127.0.0.1:${port}`
+    const ws = new WebSocket(wsUrl)
     wsRef.current = ws
 
     ws.onopen = () => {

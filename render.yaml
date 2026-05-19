@@ -1,0 +1,108 @@
+## ─────────────────────────────────────────────────────────────────────────────
+##  EduLens — Render Blueprint
+##
+##  Deploys two services:
+##    1. edulens-backend  — Express + SQLite + WebSocket  (Starter plan, $7/mo)
+##    2. edulens-teacher  — React teacher dashboard       (Static site, free)
+##
+##  HOW TO USE:
+##    1. Push this repo to GitHub
+##    2. Render Dashboard → New → Blueprint → connect your repo
+##    3. Render reads this file and creates both services automatically
+##    4. Fill in GROQ_API_KEY when prompted (the only secret)
+##    5. After first deploy, update PUBLIC_URL below if your backend gets a
+##       different subdomain than "edulens-backend" (check the Render dashboard)
+##
+##  IMPORTANT: Change "edulens-backend" and "edulens-teacher" service names
+##  below if you want different subdomain names (e.g. "myschool-backend").
+##  The URLs become:  https://<name>.onrender.com
+## ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # 1. BACKEND  (Express + SQLite + WebSocket)
+  #    URL: https://edulens-backend.onrender.com
+  #    Requires Starter plan for persistent WebSocket support
+  # ──────────────────────────────────────────────────────────────────────────
+  - type: web
+    name: edulens-backend
+    runtime: node
+    rootDir: packages/backend
+    buildCommand: npm install && npx tsc
+    startCommand: node dist/index.js
+    plan: starter
+    healthCheckPath: /health
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      - key: PORT
+        value: 10000
+
+      # SQLite stored on persistent disk (see disk section below)
+      - key: DB_PATH
+        value: /data/edulens.db
+
+      # ── AI ──────────────────────────────────────────────────────────────
+      # Groq replaces Ollama on Render (Ollama needs a local GPU — not available on Render)
+      # Get a FREE key at: https://console.groq.com
+      - key: GROQ_API_KEY
+        sync: false        # <── Render will prompt you to fill this in
+
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+
+      # Leave blank — Ollama not available on Render, Groq is used instead
+      - key: OLLAMA_URL
+        value: ""
+
+      # ── Auth ────────────────────────────────────────────────────────────
+      - key: DEFAULT_TEACHER_PIN
+        value: "1234"
+
+      # ── QR Code URL ──────────────────────────────────────────────────────
+      # This domain is embedded in the session QR code so student phones
+      # know which server to connect to.
+      # CHANGE THIS if your service gets a different subdomain name.
+      - key: PUBLIC_URL
+        value: edulens-backend.onrender.com
+
+    disk:
+      name: edulens-data
+      mountPath: /data
+      sizeGB: 1
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # 2. TEACHER DASHBOARD  (React static site — FREE on Render)
+  #    URL: https://edulens-teacher.onrender.com
+  #    Built with Vite, served as a static bundle
+  # ──────────────────────────────────────────────────────────────────────────
+  - type: web
+    name: edulens-teacher
+    runtime: static
+    buildCommand: >
+      ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm install &&
+      cd packages/teacher-app &&
+      npm run build:web
+    staticPublishPath: packages/teacher-app/dist-web
+
+    # SPA routing — all paths serve index.html (React Router handles the rest)
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+    envVars:
+      # ── Points teacher dashboard at the backend ──────────────────────────
+      # CHANGE the domain if your backend service has a different name.
+      - key: VITE_API_URL
+        value: https://edulens-backend.onrender.com
+
+      - key: VITE_WS_URL
+        value: wss://edulens-backend.onrender.com
+
+      # Prevents Electron binary download during CI build (not needed for web)
+      - key: ELECTRON_SKIP_BINARY_DOWNLOAD
+        value: "1"

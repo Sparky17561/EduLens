@@ -23,8 +23,12 @@ router.post('/start', async (req: Request, res: Response) => {
 
     const sessionId = generateId('sess')
     const sessionCode = generateSessionCode()
-    const hostIp = getLocalIP()
-    const port = parseInt(process.env.PORT || '3001')
+
+    // PUBLIC_URL env var overrides LAN IP detection (used when backend is on Render/cloud)
+    // e.g. PUBLIC_URL=edulens-backend.onrender.com
+    const publicDomain = process.env.PUBLIC_URL
+    const hostIp = publicDomain || getLocalIP()
+    const port = publicDomain ? 443 : parseInt(process.env.PORT || '3001')
 
     // QR encodes a deep-link with all join info
     const joinUrl = `edulens://join/${sessionId}?code=${sessionCode}&host=${hostIp}&port=${port}`

@@ -1,9 +1,14 @@
 import axios from 'axios'
 
-let BASE_URL = 'http://192.168.1.100:3001'  // Default — overridden by QR scan
+// EXPO_PUBLIC_API_URL is injected at APK build time for cloud deployments.
+// At runtime, setBackendUrl() overrides this when the student scans a QR or enters a code.
+let BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.100:3001'
 
 export function setBackendUrl(host: string, port: number) {
-  BASE_URL = `http://${host}:${port}`
+  // Port 443 = HTTPS (cloud/Render), anything else = HTTP (LAN)
+  const protocol = port === 443 ? 'https' : 'http'
+  const portSuffix = (port === 443 || port === 80) ? '' : `:${port}`
+  BASE_URL = `${protocol}://${host}${portSuffix}`
   api.defaults.baseURL = BASE_URL
   console.log('[API] Backend URL set to:', BASE_URL)
 }

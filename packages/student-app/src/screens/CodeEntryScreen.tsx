@@ -27,10 +27,14 @@ export default function CodeEntryScreen() {
 
     setLoading(true)
     try {
-      setBackendUrl(host.trim(), 3001)
+      const h = host.trim()
+      // If host looks like a domain (not a raw IP), assume HTTPS (port 443)
+      const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(h)
+      const port = isIp ? 3001 : 443
+      setBackendUrl(h, port)
       const result = await sessionApi.join({ sessionCode: code.toUpperCase(), studentName: student.name })
       setStudent({ id: result.studentId, name: result.studentName })
-      setSession({ id: result.sessionId, code: result.sessionCode, topic: result.topic, host: host.trim(), port: 3001 })
+      setSession({ id: result.sessionId, code: result.sessionCode, topic: result.topic, host: h, port })
       nav.navigate('Lobby')
     } catch (err: any) {
       Alert.alert('Unable to Connect', err.response?.data?.error || err.message || 'Make sure both devices are on the same Wi-Fi.')
@@ -57,7 +61,7 @@ export default function CodeEntryScreen() {
         {/* Title */}
         <Text style={styles.title}>Join Class Room</Text>
         <Text style={styles.sub}>
-          Ask your teacher for the 6-character code and their IP address shown on the dashboard.
+          Ask your teacher for the 6-character code and the server address shown on the dashboard.
         </Text>
 
         {/* Code Input Card */}
@@ -75,19 +79,20 @@ export default function CodeEntryScreen() {
           />
         </View>
 
-        {/* IP Input Card */}
+        {/* Host Input Card */}
         <View style={styles.card}>
-          <Text style={styles.label}>TEACHER'S IP ADDRESS</Text>
+          <Text style={styles.label}>SERVER ADDRESS</Text>
           <TextInput
             style={styles.ipInput}
             value={host}
             onChangeText={setHost}
-            placeholder="e.g. 192.168.1.5"
+            placeholder="192.168.1.5  or  myschool.onrender.com"
             placeholderTextColor={colors.inkFaint}
-            keyboardType="numeric"
+            autoCapitalize="none"
+            keyboardType="default"
           />
           <Text style={styles.hint}>
-            Listed right under the QR code on the teacher's display.
+            LAN: IP shown under the QR code · Cloud: your Render domain
           </Text>
         </View>
 

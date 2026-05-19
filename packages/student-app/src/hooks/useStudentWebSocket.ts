@@ -25,8 +25,11 @@ export function useStudentWebSocket() {
         try { wsRef.current.close() } catch {}
       }
 
-      console.log(`[WS] Connecting to student socket: ws://${session.host}:${session.port}`)
-      const ws = new WebSocket(`ws://${session.host}:${session.port}`)
+      const wsProtocol = session.port === 443 ? 'wss' : 'ws'
+      const wsPort = (session.port === 443 || session.port === 80) ? '' : `:${session.port}`
+      const wsUrl = `${wsProtocol}://${session.host}${wsPort}`
+      console.log(`[WS] Connecting to student socket: ${wsUrl}`)
+      const ws = new WebSocket(wsUrl)
       wsRef.current = ws
 
       ws.onopen = () => {
