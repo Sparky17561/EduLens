@@ -200,7 +200,11 @@ export default function ChatScreen() {
         </Pressable>
       )}
 
-      <View style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+      >
         <FlatList
           ref={listRef}
           data={messages}
@@ -311,54 +315,52 @@ export default function ChatScreen() {
           }
         />
 
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={styles.langRow}>
-            {(['en-US', 'hi-IN'] as const).map(lang => (
-              <Pressable
-                key={lang}
-                onPress={() => setTtsLanguage(lang)}
-                style={[styles.langChip, ttsLanguage === lang && styles.langChipActive]}
-              >
-                <Text style={[styles.langChipText, ttsLanguage === lang && styles.langChipTextActive]}>
-                  {lang === 'en-US' ? 'EN' : 'HI'}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-          <View style={styles.inputRow}>
-            <VoiceInput
-              onText={t => setInput(prev => (prev ? prev + ' ' : '') + t)}
-              onVoiceResponse={handleVoiceResponse}
-              sessionTopic={session?.topic}
-              language={ttsLanguage}
-            />
-            <TextInput
-              style={styles.input}
-              value={input}
-              onChangeText={setInput}
-              placeholder="Try /ask /hint /cite /flashcards or message class..."
-              placeholderTextColor={colors.inkFaint}
-              multiline
-              onSubmitEditing={send}
-            />
+        <View style={styles.langRow}>
+          {(['en-US', 'hi-IN'] as const).map(lang => (
             <Pressable
-              style={({ pressed }) => [
-                styles.sendBtn,
-                (!input.trim() || aiLoading) && styles.sendBtnDisabled,
-                { transform: [{ scale: pressed ? 0.95 : 1 }] }
-              ]}
-              onPress={send}
-              disabled={!input.trim() || aiLoading}
+              key={lang}
+              onPress={() => setTtsLanguage(lang)}
+              style={[styles.langChip, ttsLanguage === lang && styles.langChipActive]}
             >
-              <Svg width={20} height={20} viewBox="0 0 24 24">
-                <Path d="M22 2 L11 13 M22 2 L15 22 L11 13 L2 9 Z"
-                      stroke={colors.white} strokeWidth="2.4" fill="none"
-                      strokeLinecap="round" strokeLinejoin="round" />
-              </Svg>
+              <Text style={[styles.langChipText, ttsLanguage === lang && styles.langChipTextActive]}>
+                {lang === 'en-US' ? 'EN' : 'HI'}
+              </Text>
             </Pressable>
-          </View>
-        </KeyboardAvoidingView>
-      </View>
+          ))}
+        </View>
+        <View style={styles.inputRow}>
+          <VoiceInput
+            onText={t => setInput(prev => (prev ? prev + ' ' : '') + t)}
+            onVoiceResponse={handleVoiceResponse}
+            sessionTopic={session?.topic}
+            language={ttsLanguage}
+          />
+          <TextInput
+            style={styles.input}
+            value={input}
+            onChangeText={setInput}
+            placeholder="Try /ask /hint /cite /flashcards or message class..."
+            placeholderTextColor={colors.inkFaint}
+            multiline
+            onSubmitEditing={send}
+          />
+          <Pressable
+            style={({ pressed }) => [
+              styles.sendBtn,
+              (!input.trim() || aiLoading) && styles.sendBtnDisabled,
+              { transform: [{ scale: pressed ? 0.95 : 1 }] }
+            ]}
+            onPress={send}
+            disabled={!input.trim() || aiLoading}
+          >
+            <Svg width={20} height={20} viewBox="0 0 24 24">
+              <Path d="M22 2 L11 13 M22 2 L15 22 L11 13 L2 9 Z"
+                    stroke={colors.white} strokeWidth="2.4" fill="none"
+                    strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
     </ScreenScaffold>
   )
 }

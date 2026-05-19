@@ -38,6 +38,11 @@ export default function QuizScreen() {
     setSelected(null)
   }, [current, activeQuiz?.quizId])
 
+  const matchRights = useMemo(() => {
+    if (!q?.matchPairs?.length) return q?.options?.filter(Boolean) || []
+    return [...q.matchPairs.map(p => p.right)].sort(() => Math.random() - 0.5)
+  }, [current, q?.matchPairs])
+
   if (!activeQuiz || !q) {
     return (
       <ScreenScaffold tint="dusk">
@@ -57,11 +62,6 @@ export default function QuizScreen() {
   }
   const total = activeQuiz.questions.length
   const progress = (current / total) * 100
-
-  const matchRights = useMemo(() => {
-    if (!q.matchPairs?.length) return q.options?.filter(Boolean) || []
-    return [...q.matchPairs.map(p => p.right)].sort(() => Math.random() - 0.5)
-  }, [current, q.matchPairs])
 
   const hasAnswer = () => {
     if (qType === 'short_answer' || qType === 'fill_blank') {
@@ -117,12 +117,13 @@ export default function QuizScreen() {
         markQuizCompleted(activeQuiz.quizId)
         setQuizResult(result)
         if (result.homework?.followUpQuestions?.length) setHomeworkGenerating(false)
-        setActiveQuiz(null)
+        setLoading(false)
         nav.navigate('Results')
+        setActiveQuiz(null)
       } catch (e: any) {
+        setLoading(false)
         Alert.alert('Failed to Submit', e.message || "Make sure you are connected to the teacher's network.")
       }
-      setLoading(false)
     }
   }
 

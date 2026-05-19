@@ -289,7 +289,7 @@ export async function retrieveRelevantContextWithCitations(
   })
 
   scored.sort((a, b) => b.score - a.score)
-  const minScore = embedReady ? 0.35 : 0.05
+  const minScore = embedReady ? 0.15 : 0.04
   const top = scored.filter(s => s.score > minScore).slice(0, topK)
   if (!top.length) return { context: '', citations: [], bestScore: 0 }
 

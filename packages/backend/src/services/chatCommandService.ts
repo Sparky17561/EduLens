@@ -96,16 +96,6 @@ export async function executeChatCommand(
   const hasRag = rag.context.length > 0
   ragScore = rag.bestScore
 
-  if (command === 'ask' && hasActiveKnowledgeBase() && !hasRag) {
-    return {
-      answer:
-        "⚠️ I'm not certain — I couldn't find this in your teacher's uploaded material. Please ask your teacher to explain this one in class.",
-      confidence: 'low',
-      confidenceNote: 'No matching textbook chunk.',
-      citations: []
-    }
-  }
-
   switch (command) {
     case 'ask':
     case 'cite':
@@ -174,9 +164,15 @@ export async function executeChatCommand(
       )
       break
     case 'flashcards': {
+      const fcRag = hasActiveKnowledgeBase()
+        ? await retrieveRelevantContextWithCitations(arg || topic, 4)
+        : { context: '', citations: [] as Citation[], bestScore: 0 }
+      const fcCtx = fcRag.context
+        ? `Based on this content:\n${fcRag.context}\n\n`
+        : ''
       const raw = await runPrompt(
-        `5 flashcards for "${topic}". JSON: [{"front":"Q","back":"A"}]. Back max 15 words.`,
-        'JSON array only.',
+        `${fcCtx}Generate 6 flashcards for "${topic}". Each card: a concise question on the front and a short answer (max 20 words) on the back. Return ONLY a JSON array: [{"front":"...","back":"..."}].`,
+        'JSON array only. No extra text.',
         0.3
       )
       try {

@@ -52,53 +52,84 @@ export default function VoiceInput({ onText, onVoiceResponse, sessionTopic, lang
       await recRef.current.stopAndUnloadAsync()
       const uri = recRef.current.getURI()
       recRef.current = null
-      if (!uri) throw new Error('No recording')
 
-      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any })
+      if (uri) {
+        const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any })
 
-      if (onVoiceResponse) {
-        const res = await api.post('/ai/voice-ask', {
-          question: draft,
-          language,
-          sessionTopic,
-          audioBase64: base64,
-          audioMime: 'audio/m4a'
-        }, { timeout: 120000 }).catch(() => null)
+        if (onVoiceResponse) {
+          const res = await api.post('/ai/voice-ask', {
+            question: draft,
+            language,
+            sessionTopic,
+            audioBase64: base64,
+            audioMime: 'audio/m4a'
+          }, { timeout: 120000 }).catch(() => null)
 
-        if (res?.data?.answer) {
-          onVoiceResponse({
-            question: res.data.question || draft,
-            answer: res.data.answer,
-            audioBase64: res.data.audio?.audioBase64,
-            citations: res.data.citations,
-            confidence: res.data.confidence
-          })
-          setOpen(false)
-          setDraft('')
-          setBusy(false)
-          return
+          if (res?.data?.answer) {
+            onVoiceResponse({
+              question: res.data.question || draft,
+              answer: res.data.answer,
+              audioBase64: res.data.audio?.audioBase64,
+              citations: res.data.citations,
+              confidence: res.data.confidence
+            })
+            setOpen(false)
+            setDraft('')
+            setBusy(false)
+            return
+          }
         }
+
+        // Fallback: try text transcription
+        try {
+          const form = new FormData()
+          form.append('audio', { uri, name: 'voice.m4a', type: 'audio/m4a' } as any)
+          form.append('language', language)
+          const res = await api.post('/ai/transcribe', form, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            timeout: 60000
+          })
+          const transcribed = res.data?.text
+          if (transcribed?.trim()) {
+            onText(transcribed.trim())
+            setOpen(false)
+            setDraft('')
+            setBusy(false)
+            return
+          }
+        } catch {}
       }
 
-      const form = new FormData()
-      form.append('audio', {
-        uri,
-        name: 'voice.m4a',
-        type: 'audio/m4a'
-      } as any)
-      form.append('language', language)
-      const res = await api.post('/ai/transcribe', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 60000
-      })
-      const text = res.data?.text || draft
-      onText(text)
-      setOpen(false)
-      setDraft('')
+      // Final fallback: use whatever the user typed in the draft field
+      if (draft.trim()) {
+        onText(draft.trim())
+        setOpen(false)
+        setDraft('')
+      } else {
+        Alert.alert(
+          'Voice not available',
+          'Speech recognition requires a Groq API key on the server. Type your question in the box below and tap "Use typed text".'
+        )
+      }
     } catch (e: any) {
-      Alert.alert('Voice failed', e.response?.data?.error || e.message || 'Try typing instead')
+      // If draft is available, use it silently rather than showing an error
+      if (draft.trim()) {
+        onText(draft.trim())
+        setOpen(false)
+        setDraft('')
+      } else {
+        Alert.alert('Voice failed', e.response?.data?.error || e.message || 'Type your question instead.')
+      }
     }
     setBusy(false)
+  }
+
+  const handleRecordToggle = async () => {
+    if (recording) {
+      await stopAndSend()
+    } else {
+      await startRecording()
+    }
   }
 
   return (
@@ -130,11 +161,11 @@ export default function VoiceInput({ onText, onVoiceResponse, sessionTopic, lang
             <Text style={styles.hint}>Hold record, speak your doubt, then release to send to AI.</Text>
 
             <Pressable
-              onPressIn={startRecording}
-              onPressOut={stopAndSend}
+              onPress={handleRecordToggle}
+              disabled={busy}
               style={[styles.recordBtn, recording && styles.recordActive]}
             >
-              <Text style={styles.recordText}>{recording ? '🔴 Release to send' : '🎤 Hold to speak'}</Text>
+              <Text style={styles.recordText}>{recording ? '🔴 Tap to stop & send' : '🎤 Tap to start recording'}</Text>
             </Pressable>
 
             <TextInput

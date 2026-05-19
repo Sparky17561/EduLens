@@ -57,13 +57,24 @@ router.post('/knowledge-bases', upload.single('document'), async (req: Request, 
     fs.renameSync(req.file.path, permanentPath)
 
     const db = getDb()
-    const kbId = generateId('kb')
-    const chunkCount = await processPdfForStorage(permanentPath, kbId, name)
 
+    // Ensure teacher row exists (FK: knowledge_bases.teacher_id → users.id)
+    db.prepare(`INSERT OR IGNORE INTO users (id, name, role) VALUES (?, ?, 'teacher')`)
+      .run(teacherId, teacherId)
+
+    const kbId = generateId('kb')
+
+    // Insert knowledge_bases row FIRST so rag_chunks FK (kb_id → knowledge_bases.id) doesn't fail
     db.prepare(`
       INSERT INTO knowledge_bases (id, teacher_id, name, file_path, chunk_count, source_count)
-      VALUES (?, ?, ?, ?, ?, 1)
-    `).run(kbId, teacherId, name, permanentPath, chunkCount)
+      VALUES (?, ?, ?, ?, 0, 1)
+    `).run(kbId, teacherId, name, permanentPath)
+
+    // Now process PDF — persistChunks inserts into rag_chunks which requires the KB row above
+    const chunkCount = await processPdfForStorage(permanentPath, kbId, name)
+
+    // Update chunk count now that we know the real number
+    db.prepare(`UPDATE knowledge_bases SET chunk_count = ? WHERE id = ?`).run(chunkCount, kbId)
 
     res.json({ success: true, id: kbId, name, chunks: chunkCount })
   } catch (err: any) {

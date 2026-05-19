@@ -288,6 +288,17 @@ router.post('/submit', async (req: Request, res: Response) => {
       payload: { sessionId }
     })
 
+    // Generate flashcards from actual quiz Q&A and broadcast to all students
+    const flashcards = questions.map((rawQ: any) => {
+      const q = parseQuestionRow(rawQ)
+      return { front: q.question, back: q.correct_answer }
+    })
+    broadcastToSession(sessionId, {
+      event: 'flashcards_ready',
+      sessionId,
+      payload: { flashcards }
+    })
+
     res.json({
       score,
       total,
