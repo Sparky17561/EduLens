@@ -73,7 +73,7 @@ services:
     name: edulens-teacher
     runtime: static
     buildCommand: >
-      ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm install &&
+      ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm install --ignore-scripts &&
       cd packages/teacher-app &&
       npm run build:web
     staticPublishPath: packages/teacher-app/dist-web
@@ -85,10 +85,10 @@ services:
 
     envVars:
       - key: VITE_API_URL
-        value: https://edulens-backend.onrender.com
+        value: https://edulens-backend-jwvn.onrender.com
 
       - key: VITE_WS_URL
-        value: wss://edulens-backend.onrender.com
+        value: wss://edulens-backend-jwvn.onrender.com
 
       - key: ELECTRON_SKIP_BINARY_DOWNLOAD
         value: "1"
